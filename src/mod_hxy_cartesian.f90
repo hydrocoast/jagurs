@@ -8,10 +8,14 @@ implicit none
 
 contains
 
-   subroutine hxy_rwg(wfld,dt,dxdy,nlon,nlat)
+   subroutine hxy_rwg(wfld,dt,dxdy,dth,joff,nlon,nlat)
       type(wave_arrays), target, intent(inout) :: wfld
       real(kind=REAL_BYTE), intent(in) :: dt, dxdy
       integer(kind=4), intent(in) :: nlon, nlat
+! === Dummy arguments ==========================================================
+      real(kind=REAL_BYTE), intent(in) :: dth
+      integer(kind=4), intent(in) :: joff
+! ==============================================================================
 
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: fx, fy, hz
       integer(kind=4) :: i, j
@@ -33,11 +37,7 @@ contains
       return
    end subroutine hxy_rwg
 
-#ifndef MPI
-   subroutine hxynl_rwg(wfld,dfld,ifz,dt,dxdy,nlon,nlat,smallh)
-#else
-   subroutine hxynl_rwg(wfld,dfld,ifz,dt,dxdy,nlon,nlat,smallh,bflag)
-#endif
+   subroutine hxynl_rwg(wfld,dfld,ifz,dt,dxdy,dth,joff,nlon,nlat,smallh,bflag)
       type(wave_arrays), target, intent(inout) :: wfld
       type(depth_arrays), target, intent(inout) :: dfld
 ! === Conversion from flux to velocity should be done right after calc. ========
@@ -51,9 +51,11 @@ contains
       real(kind=REAL_BYTE), intent(in) :: dt, dxdy
       integer(kind=4), intent(in) :: nlon, nlat
       real(kind=REAL_BYTE), intent(in) :: smallh
-#ifdef MPI
       integer(kind=4), intent(in) :: bflag
-#endif
+! === Dummy arguments ==========================================================
+      real(kind=REAL_BYTE), intent(in) :: dth
+      integer(kind=4), intent(in) :: joff
+! ==============================================================================
 
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: fx, fy, hz, dz
       integer(kind=4) :: i, j

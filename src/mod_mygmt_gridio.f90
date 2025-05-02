@@ -3,9 +3,7 @@ module mod_mygmt_gridio
 ! === For negative max. height =================================================
 use mod_params, only : missing_value
 ! ==============================================================================
-#ifdef NFSUPPORT
 use mod_params, only : id_cf17
-#endif
 implicit none
 include 'netcdf.inc'
 
@@ -14,11 +12,7 @@ contains
 ! === For negative max. height =================================================
 !  subroutine mygmt_grdio_d(z,x0,x1,y0,y1,dx,dy,zmin,zmax,nx,ny,filename)
    subroutine mygmt_grdio_d(z,x0,x1,y0,y1,dx,dy,zmin,zmax,nx,ny,filename, &
-#ifndef NFSUPPORT
-                            flag_missing_value)
-#else
                             formatid,flag_missing_value)
-#endif
 ! ==============================================================================
       real(kind=REAL_BYTE), dimension(nx,ny), intent(in) :: z
       real(kind=8), intent(in) :: x0, x1, y0, y1, dx, dy
@@ -42,13 +36,10 @@ contains
       !** set these ***
       real(kind=8), allocatable, dimension(:) :: x_range, y_range, z_range, spacing
       integer(kind=4), allocatable, dimension(:) :: dimension
-#if defined(REAL_DBLE) || defined(NFSUPPORT)
 ! === Write buffer must be 4 byte. =============================================
       real(kind=4), allocatable, dimension(:,:) :: z_tmp
 ! ==============================================================================
-#endif
       logical :: missing_value_is_available
-#ifdef NFSUPPORT
       integer(kind=4), intent(in) :: formatid
       real(kind=8), allocatable, dimension(:) :: tmp
 #if !defined(__NEC__) && !defined(__GFORTRAN__)
@@ -57,10 +48,7 @@ contains
       real(kind=4), parameter :: NaN = Z'FFFFFFFF'
 #endif
       integer(kind=4) :: x_dim, y_dim, i
-#endif
-#ifdef NFSUPPORT
       integer(kind=4) :: j
-#endif
 
       xysize_len = nx*ny
       side_len = 2 ! 2 sides
@@ -71,9 +59,7 @@ contains
       allocate(spacing(side_len))
       allocate(dimension(side_len))
 
-#ifdef NFSUPPORT
       if(formatid == nf_format_classic) then
-#endif
       ! enter define mode
       stat = nf_create(filename, NF_CLOBBER, ncid)
 
@@ -144,7 +130,6 @@ contains
       stat = nf_put_var_double(ncid, spacing_id, spacing)
       ! store dimension
       stat = nf_put_var_int(ncid, dimension_id, dimension)
-#ifdef NFSUPPORT
       else
          ! enter define mode
          stat = nf_create(filename, NF_NETCDF4, ncid)
@@ -229,19 +214,12 @@ contains
          stat = nf_put_var_double(ncid, y_range_id, tmp)
          deallocate(tmp)
       end if
-#endif
 
       ! store z
-#if !defined(REAL_DBLE) && !defined(NFSUPPORT)
-      stat = nf_put_var_real(ncid, z_id, z)
-#else
 ! === Write buffer must be 4 byte. =============================================
       allocate(z_tmp(nx,ny))
-#ifdef NFSUPPORT
       if(formatid == nf_format_classic) then
-#endif
       z_tmp = z
-#ifdef NFSUPPORT
       else
          do j = 1, ny
             do i = 1, nx
@@ -249,11 +227,9 @@ contains
             end do
          end do
       end if
-#endif
       stat = nf_put_var_real(ncid, z_id, z_tmp)
       deallocate(z_tmp)
 ! ==============================================================================
-#endif
       stat = nf_close(ncid)
 
       deallocate(x_range)
@@ -265,25 +241,13 @@ contains
       return
    end subroutine mygmt_grdio_d
 
-   subroutine read_gmt_grd_hdr(infilename, nx, ny, dx, dy, &
-#ifndef PIXELIN
-#ifndef NFSUPPORT
-                               west, east, south, north, zmin, zmax)
-#else
-                               west, east, south, north, zmin, zmax, formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-                               west, east, south, north, zmin, zmax, nxorg, nyorg)
-#else
-                               west, east, south, north, zmin, zmax, nxorg, nyorg, formatid)
-#endif
+   subroutine read_gmt_grd_hdr(infilename, nx, ny, dx, dy, west, east, south, north, zmin, zmax, nxorg, nyorg, formatid, read_header)
       use mod_params, only : RUDEF, IUDEF
-#endif
       character(len=256), intent(in) :: infilename
       integer(kind=4), intent(out) :: nx, ny
       real(kind=REAL_BYTE), intent(out) :: dx, dy, west, east, south, north, zmin, zmax
 
+      integer(kind=4), intent(out) :: nxorg, nyorg
 #ifndef PIXELIN
       integer(kind=4) :: ncid, err
       integer(kind=4) :: side_id, xysize_id, side_len, xysize_len, side_dim, xysize_dim
@@ -291,15 +255,14 @@ contains
       integer(kind=4), allocatable, dimension(:) :: dimension
       integer(kind=4) :: x_range_id, y_range_id, z_range_id, spacing_id, dimension_id
 #else
-      integer(kind=4), intent(out) :: nxorg, nyorg
       character(len=256) :: descfile
       namelist /desc/ west, east, south, north, dx, dy, zmin, zmax, nx, ny
       real(kind=REAL_BYTE) :: westorg, eastorg, southorg, northorg
 #endif
-#ifdef NFSUPPORT
       integer(kind=4), intent(out) :: formatid
       integer(kind=4) :: node_offset
-#endif
+      logical, intent(in), optional :: read_header
+      logical :: check_offset
 
       !*** open the file and inquire about the dimensions ***
 #ifndef PIXELIN
@@ -312,11 +275,9 @@ contains
          stop
       end if
 
-#ifdef NFSUPPORT
       err = nf_inq_format(ncid, formatid)
 
       if(formatid == nf_format_classic) then
-#endif
       err = nf_inq_dimid(ncid, 'side', side_id)
       err = nf_inq_dimid(ncid, 'xysize', xysize_id)
 
@@ -325,11 +286,9 @@ contains
       err = nf_inq_dimlen(ncid, xysize_id, xysize_len)
       side_dim = int(side_len)
       xysize_dim = int(xysize_len)
-#ifdef NFSUPPORT
       else
          side_dim = 2
       end if
-#endif
 
       !*** allocate space for variables ***
       allocate(x_range(side_dim))
@@ -338,9 +297,7 @@ contains
       allocate(spacing(side_dim))
       allocate(dimension(side_dim))
 
-#ifdef NFSUPPORT
       if(formatid == nf_format_classic) then
-#endif
       !*** get the variable id's - these variable names are common in GMT ***
       err = nf_inq_varid(ncid, 'x_range', x_range_id)
       err = nf_inq_varid(ncid, 'y_range', y_range_id)
@@ -354,10 +311,14 @@ contains
       err = nf_get_var_double(ncid, z_range_id, z_range)
       err = nf_get_var_double(ncid, spacing_id, spacing)
       err = nf_get_var_int(ncid, dimension_id, dimension)
-#ifdef NFSUPPORT
       else
+         check_offset = .true.
+         if(present(read_header)) then
+            if(read_header) check_offset = .false.
+         end if
+
          err = nf_get_att_int(ncid, nf_global, 'node_offset', node_offset)
-         if((node_offset == 1) .and. (err == 0)) then
+         if((node_offset == 1) .and. (err == 0) .and. check_offset) then
             write(0,'(a)') 'Error! Grid file with pixel node registration is NOT available!!!'
             stop
          end if
@@ -407,7 +368,6 @@ contains
          !spacing(1) = (x_range(2) - x_range(1))/dimension(1)
          !spacing(2) = (y_range(2) - y_range(1))/dimension(2)
       end if
-#endif
       err = nf_close(ncid)
 
       !*** move values into return variables ***
@@ -484,26 +444,18 @@ contains
 #endif
    end subroutine read_gmt_grd_hdr
 
-#ifndef NFSUPPORT
-   subroutine read_gmt_grd(infilename,z,nx,ny)
-#else
    subroutine read_gmt_grd(infilename,z,nx,ny,formatid)
-#endif
       character(len=256), intent(in) :: infilename
       real(kind=REAL_BYTE), dimension(nx,ny), intent(inout) :: z
 !     real(kind=REAL_BYTE), intent(inout) :: z
       integer(kind=4), intent(in) :: nx, ny
 
       integer(kind=4) :: err, ncid, z_id
-#if defined(REAL_DBLE) || defined(NFSUPPORT)
 ! === Read buffer must be 4 byte. ==============================================
       real(kind=4), allocatable, dimension(:,:) :: z_tmp
 ! ==============================================================================
-#endif
-#ifdef NFSUPPORT
       integer(kind=4), intent(in) :: formatid
       integer(kind=4) :: i, j
-#endif
 
       !*** open file again ***
       err = nf_open(infilename, NF_NOWRITE, ncid)
@@ -518,17 +470,11 @@ contains
       !*** inquire about z-data and read into float array
       !    assumes space is already allocated ***
       err = nf_inq_varid(ncid, 'z', z_id)
-#if !defined(REAL_DBLE) && !defined(NFSUPPORT)
-      err = nf_get_var_real(ncid, z_id, z)
-#else
 ! === Read buffer must be 4 byte. ==============================================
       allocate(z_tmp(nx,ny))
       err = nf_get_var_real(ncid, z_id, z_tmp)
-#ifdef NFSUPPORT
       if(formatid == nf_format_classic) then
-#endif
       z = z_tmp
-#ifdef NFSUPPORT
       else
          do j = 1, ny
             do i = 1, nx
@@ -536,10 +482,8 @@ contains
             end do
          end do
       end if
-#endif
       deallocate(z_tmp)
 ! ==============================================================================
-#endif
 
       !*** close file and return pointer to array ***
       err = nf_close(ncid)

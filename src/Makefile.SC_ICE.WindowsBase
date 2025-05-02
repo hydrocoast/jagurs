@@ -112,6 +112,7 @@ PREC=REAL_DBLE
 #DUMP1D=ON
 #OLD_SCHEME=ON
 #NORMALMODE=ON
+#NM_DEF=ON
 
 ################################################################################
 ################################################################################
@@ -212,6 +213,9 @@ ifeq ($(MPI),ON)
 else
    FFLAGS+=-DMULTI -lmpi
 endif
+   FFLAGS+=-D__MPICOMM__=MPI_MEMBER_WORLD
+else
+   FFLAGS+=-D__MPICOMM__=MPI_COMM_WORLD
 endif
 
 # Single tgs output
@@ -263,12 +267,14 @@ endif
 ifeq ($(PIXELOUT),ON)
    FFLAGS+=-DPIXELOUT
 endif
-FFLAGS+=-DNFSUPPORT
 ifeq ($(OLD_SCHEME),ON)
    FFLAGS+=-DOLD_SCHEME
 endif
 ifeq ($(NORMALMODE),ON)
    FFLAGS+=-DNORMALMODE
+endif
+ifeq ($(NM_DEF),ON)
+   FFLAGS+=-DNM_DEF
 endif
 
 ################################################################################

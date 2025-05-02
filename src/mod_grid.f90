@@ -94,9 +94,7 @@ type grid_info
    real(kind=4), allocatable, dimension(:,:) :: buf_l_ncdio
 #endif
 #endif
-#ifdef NFSUPPORT
    integer(kind=4) :: formatid
-#endif
 end type grid_info
 
 type interp_info
@@ -192,15 +190,8 @@ end type wave_arrays
 ! === Elastic Loading ==========================================================
 type loading
    integer(kind=4) :: N_X, N_Y ! Size of FFT-box
-#ifndef __SX__
    integer(kind=8), allocatable, dimension(:) :: &
       xplan_forward, yplan_forward, xplan_backward, yplan_backward ! FFTW3 plan
-#else
-   integer(kind=4), allocatable, dimension(:,:) :: ifax_x, ifax_y
-   real(kind=8), allocatable, dimension(:,:) :: trigs_x, trigs_y
-   real(kind=8), allocatable, dimension(:,:) :: work_x
-   complex(kind=8), allocatable, dimension(:,:) :: work_y
-#endif
    complex(kind=8), allocatable, dimension(:,:) :: green_out_Z
    complex(kind=8), allocatable, dimension(:,:) :: xfftbuf, yfftbuf
    real(kind=8), allocatable, dimension(:,:) :: realbuf
@@ -300,9 +291,10 @@ type data_grids
    character(len=256) :: wod_file
    real(kind=REAL_BYTE), allocatable, dimension(:,:) :: wod_field
    character(len=256) :: bcf_file
-#ifdef BANKFILE
    character(len=256) :: bank_file
-#endif
+   character(len=256) :: init_hz_file
+   character(len=256) :: init_fx_file
+   character(len=256) :: init_fy_file
    real(kind=REAL_BYTE), allocatable, dimension(:,:) :: bcf_field
    type(interp_info) :: fxo
    type(interp_info) :: fyo
@@ -360,7 +352,6 @@ type tgs
    character(len=16) :: id ! identifier
 end type tgs
 
-#ifndef __SX__
 contains
 
    subroutine read_grid_info(gfile,dg,ng)
@@ -405,36 +396,50 @@ contains
                              dg(ig)%my%disp_file, dg(ig)%wod_file
          read(buf,*,end=106) dg(ig)%my%base_name, dg(ig)%parent%base_name, dg(ig)%my%linear_flag, dg(ig)%my%bath_file, &
                              dg(ig)%my%disp_file, dg(ig)%wod_file, dg(ig)%bcf_file
-#ifdef BANKFILE
          read(buf,*,end=107) dg(ig)%my%base_name, dg(ig)%parent%base_name, dg(ig)%my%linear_flag, dg(ig)%my%bath_file, &
                              dg(ig)%my%disp_file, dg(ig)%wod_file, dg(ig)%bcf_file, dg(ig)%bank_file
-#endif
+         read(buf,*,end=108) dg(ig)%my%base_name, dg(ig)%parent%base_name, dg(ig)%my%linear_flag, dg(ig)%my%bath_file, &
+                             dg(ig)%my%disp_file, dg(ig)%wod_file, dg(ig)%bcf_file, dg(ig)%bank_file, dg(ig)%init_hz_file
+         read(buf,*,end=109) dg(ig)%my%base_name, dg(ig)%parent%base_name, dg(ig)%my%linear_flag, dg(ig)%my%bath_file, &
+                             dg(ig)%my%disp_file, dg(ig)%wod_file, dg(ig)%bcf_file, dg(ig)%bank_file, dg(ig)%init_hz_file, &
+                             dg(ig)%init_fx_file
+         read(buf,*,end=110) dg(ig)%my%base_name, dg(ig)%parent%base_name, dg(ig)%my%linear_flag, dg(ig)%my%bath_file, &
+                             dg(ig)%my%disp_file, dg(ig)%wod_file, dg(ig)%bcf_file, dg(ig)%bank_file, dg(ig)%init_hz_file, &
+                             dg(ig)%init_fx_file, dg(ig)%init_fy_file
          cycle
 104      dg(ig)%my%disp_file = 'NO_DISPLACEMENT_FILE_GIVEN'
 105      dg(ig)%wod_file     = 'NO_WETORDRY_FILE_GIVEN'
 106      dg(ig)%bcf_file     = 'NO_FRICTION_FILE_GIVEN'
-#ifdef BANKFILE
 107      dg(ig)%bank_file    = 'NO_BANK_FILE_GIVEN'
-#endif
+108      dg(ig)%init_hz_file = 'NO_INIT_HZ_FILE_GIVEN'
+109      dg(ig)%init_fx_file = 'NO_INIT_FX_FILE_GIVEN'
+110      dg(ig)%init_fy_file = 'NO_INIT_FY_FILE_GIVEN'
       end do
 #ifdef MULTI
 ! === Split Dir ================================================================
       do ig = 1, ng
          dg(ig)%my%bath_file = trim(input_dirname) // trim(dg(ig)%my%bath_file)
-         if(dg(ig)%my%disp_file /= 'NO_DISPLACEMENT_FILE_GIVEN') then
+         if(dg(ig)%my%disp_file(1:15) /= 'NO_DISPLACEMENT') then
             dg(ig)%my%disp_file = trim(input_dirname) // trim(dg(ig)%my%disp_file)
          end if
-         if(dg(ig)%wod_file /= 'NO_WETORDRY_FILE_GIVEN') then
+         if(dg(ig)%wod_file(1:11) /= 'NO_WETORDRY') then
             dg(ig)%wod_file = trim(input_dirname) // trim(dg(ig)%wod_file)
          end if
-         if(dg(ig)%bcf_file /= 'NO_FRICTION_FILE_GIVEN') then
+         if(dg(ig)%bcf_file(1:11) /= 'NO_FRICTION') then
             dg(ig)%bcf_file = trim(input_dirname) // trim(dg(ig)%bcf_file)
          end if
-#ifdef BANKFILE
-         if(dg(ig)%bank_file /= 'NO_BANK_FILE_GIVEN') then
+         if(dg(ig)%bank_file(1:7) /= 'NO_BANK') then
             dg(ig)%bank_file = trim(input_dirname) // trim(dg(ig)%bank_file)
          end if
-#endif
+         if(dg(ig)%init_hz_file(1:10) /= 'NO_INIT_HZ') then
+            dg(ig)%init_hz_file = trim(input_dirname) // trim(dg(ig)%init_hz_file)
+         end if
+         if(dg(ig)%init_fx_file(1:10) /= 'NO_INIT_FX') then
+            dg(ig)%init_fx_file = trim(input_dirname) // trim(dg(ig)%init_fx_file)
+         end if
+         if(dg(ig)%init_fy_file(1:10) /= 'NO_INIT_FY') then
+            dg(ig)%init_fy_file = trim(input_dirname) // trim(dg(ig)%init_fy_file)
+         end if
       end do
 ! ==============================================================================
 #endif
@@ -449,6 +454,5 @@ contains
       call fatal_error(201)
 #endif
    end subroutine read_grid_info
-#endif
 
 end module mod_grid

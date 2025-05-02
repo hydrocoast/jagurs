@@ -58,19 +58,11 @@ contains
 
       color = ranky
       key = rankx
-#ifndef MULTI
-      call MPI_comm_split(MPI_COMM_WORLD, color, key, MPI_X_WORLD, ierr)
-#else
-      call MPI_comm_split(MPI_MEMBER_WORLD, color, key, MPI_X_WORLD, ierr)
-#endif
+      call MPI_comm_split(__MPICOMM__, color, key, MPI_X_WORLD, ierr)
 
       color = rankx
       key = ranky
-#ifndef MULTI
-      call MPI_comm_split(MPI_COMM_WORLD, color, key, MPI_Y_WORLD, ierr)
-#else
-      call MPI_comm_split(MPI_MEMBER_WORLD, color, key, MPI_Y_WORLD, ierr)
-#endif
+      call MPI_comm_split(__MPICOMM__, color, key, MPI_Y_WORLD, ierr)
 
       return
    end subroutine displacement_mpi_initialize
@@ -260,7 +252,7 @@ contains
 #else
       real(kind=8) :: cd, sd, ct, st, dep
 #endif
-#if !defined(__SX__) && !defined(__NEC__)
+#ifndef __NEC__
       real(kind=8) :: x, y, u1, u2, u3, dumm
 #else
       real(kind=8) :: x, y, u1, u2, u3
@@ -277,12 +269,8 @@ contains
 #if defined(MPI) && defined(ONEFILE)
       integer(kind=4) :: dummynx, dummyny
 #endif
-#ifdef PIXELIN
       integer(kind=4) :: nxorg, nyorg
-#endif
-#ifdef NFSUPPORT
       integer(kind=4) :: formatid
-#endif
 
       write(6,'(a)') '[displacement] Initial displacement with fault calculation.'
 
@@ -305,67 +293,25 @@ contains
 #endif
 
 #if !defined(MPI) || !defined(ONEFILE)
-#ifndef PIXELIN
-#ifndef NFSUPPORT
-      call read_gmt_grd_hdr(dg%my%bath_file,nlon,nlat,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max)
-#else
-      call read_gmt_grd_hdr(dg%my%bath_file,nlon,nlat,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-      call read_gmt_grd_hdr(dg%my%bath_file,nlon,nlat,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,nxorg,nyorg)
-#else
       call read_gmt_grd_hdr(dg%my%bath_file,nlon,nlat,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,nxorg,nyorg,formatid)
-#endif
-#endif
 #ifdef MPI
-#ifndef MULTI
-      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, x_min, 1, REAL_MPI, MPI_MIN, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, y_min, 1, REAL_MPI, MPI_MIN, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, x_max, 1, REAL_MPI, MPI_MAX, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, y_max, 1, REAL_MPI, MPI_MAX, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, x_min, 1, REAL_MPI, MPI_MIN, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, y_min, 1, REAL_MPI, MPI_MIN, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, x_max, 1, REAL_MPI, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, y_max, 1, REAL_MPI, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, __MPICOMM__, ierr)
+      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, __MPICOMM__, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, x_min, 1, REAL_MPI, MPI_MIN, __MPICOMM__, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, y_min, 1, REAL_MPI, MPI_MIN, __MPICOMM__, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, x_max, 1, REAL_MPI, MPI_MAX, __MPICOMM__, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, y_max, 1, REAL_MPI, MPI_MAX, __MPICOMM__, ierr)
 #endif
 #else
       if(myrank == 0) then
-#ifndef PIXELIN
-#ifndef NFSUPPORT
-         call read_gmt_grd_hdr(dg%my%bath_file,dummynx,dummyny,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max)
-#else
-         call read_gmt_grd_hdr(dg%my%bath_file,dummynx,dummyny,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-         call read_gmt_grd_hdr(dg%my%bath_file,dummynx,dummyny,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,nxorg,nyorg)
-#else
          call read_gmt_grd_hdr(dg%my%bath_file,dummynx,dummyny,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,nxorg,nyorg,formatid)
-#endif
-#endif
       end if
-#ifndef MULTI
-      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(x_min, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(y_min, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(x_max, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(y_max, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(x_min, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(y_min, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(x_max, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(y_max, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, __MPICOMM__, ierr)
+      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, __MPICOMM__, ierr)
+      call MPI_Bcast(x_min, 1, REAL_MPI, 0, __MPICOMM__, ierr)
+      call MPI_Bcast(y_min, 1, REAL_MPI, 0, __MPICOMM__, ierr)
+      call MPI_Bcast(x_max, 1, REAL_MPI, 0, __MPICOMM__, ierr)
+      call MPI_Bcast(y_max, 1, REAL_MPI, 0, __MPICOMM__, ierr)
 #endif
       x_inc = real(x_inc)
       y_inc = real(y_inc)
@@ -518,11 +464,7 @@ contains
             end do
          end do
 #ifdef MPI
-#ifndef MULTI
-         call MPI_Allreduce(MPI_IN_PLACE, num_distance_zero, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-         call MPI_Allreduce(MPI_IN_PLACE, num_distance_zero, 1, MPI_INTEGER, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+         call MPI_Allreduce(MPI_IN_PLACE, num_distance_zero, 1, MPI_INTEGER, MPI_SUM, __MPICOMM__, ierr)
 #endif
          if(num_distance_zero > 0) then
             write(6,'(a)')      '[displacement] ========================= WARNING!!! BEGIN ========================='
@@ -582,7 +524,7 @@ contains
          st  = dsin(strike(n)*DEG2RAD)
 !$omp end single
 
-#if !defined(__SX__) && !defined(__NEC__)
+#ifndef __NEC__
 !$omp do private(i, x, y, u1, u2, u3, dumm)
 #else
 !$omp do private(i, x, y, u1, u2, u3)
@@ -594,7 +536,7 @@ contains
 #endif
                   x =  (xy(i,j,1)-xref(n))/1000.0d0*st + (xy(i,j,2)-yref(n))/1000.0d0*ct
                   y = -(xy(i,j,1)-xref(n))/1000.0d0*ct + (xy(i,j,2)-yref(n))/1000.0d0*st + width(n)*cd
-#if !defined(__SX__) && !defined(__NEC__)
+#ifndef __NEC__
                   call srectf(ALP, x, y, dep, length(n), width(n), sd, cd, us(n), ud(n), ut(n), &
                      u1, u2, u3, dumm, dumm, dumm, dumm, dumm, dumm)
 #else
@@ -750,13 +692,8 @@ contains
       end do
 !$omp end parallel
 #ifdef MPI
-#ifndef MULTI
-      call MPI_Allreduce(MPI_IN_PLACE, umax, 1, REAL_MPI, MPI_MAX, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, umin, 1, REAL_MPI, MPI_MIN, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(MPI_IN_PLACE, umax, 1, REAL_MPI, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, umin, 1, REAL_MPI, MPI_MIN, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(MPI_IN_PLACE, umax, 1, REAL_MPI, MPI_MAX, __MPICOMM__, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, umin, 1, REAL_MPI, MPI_MIN, __MPICOMM__, ierr)
 #endif
       write(6,'(a,2f15.6)') '[displacement] umax, umin: ', umax, umin
 
@@ -781,12 +718,10 @@ contains
 #else
    subroutine displacement_apply_kj_filter(dg, zz, nlon, nlat, h0)
 #endif
-#ifndef __SX__
 #ifndef __NEC__
       include 'fftw3.f'
 #else
       include 'aslfftw3.f'
-#endif
 #endif
       type(data_grids), target, intent(inout) :: dg 
       real(kind=8), dimension(nlon,nlat), intent(inout) :: zz
@@ -805,15 +740,8 @@ contains
 #ifdef MPI
       integer(kind=4) :: ix, iy
 #endif
-#ifndef __SX__
       integer(kind=8), allocatable, dimension(:) :: &
          xplan_forward, yplan_forward, xplan_backward, yplan_backward ! FFTW3 plan
-#else
-      integer(kind=4), allocatable, dimension(:,:) :: ifax_x, ifax_y
-      real(kind=8), allocatable, dimension(:,:) :: trigs_x, trigs_y
-      real(kind=8), allocatable, dimension(:,:) :: work_x
-      complex(kind=8), allocatable, dimension(:,:) :: work_y
-#endif
       complex(kind=8), pointer, dimension(:,:) :: xfftbuf, yfftbuf
       real(kind=8), pointer, dimension(:,:) :: realbuf
 
@@ -833,11 +761,6 @@ contains
       integer(kind=4), allocatable, dimension(:) :: jts1, jte1, jtn1 ! N_Y, ny1
       integer(kind=4) :: it, nthreads
 ! ==============================================================================
-#ifdef __SX__
-#ifndef MPI
-      integer(kind=4) :: ierr
-#endif
-#endif
 ! ==============================================================================
 ! === Initialize FFT End =======================================================
 ! ==============================================================================
@@ -851,12 +774,8 @@ contains
 #ifndef CARTESIAN
       real(kind=8) :: x, lon1, lat2, lon2
 #endif
-#ifdef PIXELIN
       integer(kind=4) :: nxorg, nyorg
-#endif
-#ifdef NFSUPPORT
       integer(kind=4) :: formatid
-#endif
 
       write(6,'(a)') '[displacement] Kajiura filter is applied!'
 
@@ -964,13 +883,8 @@ contains
          if(p < mod(N_X/2+1,nprocs)) i = i + 1
          sendcounts2(p) = i*ny1
       end do
-#ifndef MULTI
       call MPI_Alltoall(sendcounts2, 1, MPI_INTEGER, &
-                        recvcounts2, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Alltoall(sendcounts2, 1, MPI_INTEGER, &
-                        recvcounts2, 1, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+                        recvcounts2, 1, MPI_INTEGER, __MPICOMM__, ierr)
       sdispls2(0) = 0
       rdispls2(0) = 0
       do p = 1, nprocs-1
@@ -991,24 +905,10 @@ contains
       nthreads = 1
 #endif
 
-#ifndef __SX__
       allocate(xplan_forward(0:nthreads-1))
       allocate(yplan_forward(0:nthreads-1))
       allocate(xplan_backward(0:nthreads-1))
       allocate(yplan_backward(0:nthreads-1))
-#else
-      allocate(ifax_x(20,0:nthreads-1))
-      allocate(ifax_y(20,0:nthreads-1))
-      allocate(trigs_x(N_X*2,0:nthreads-1))
-      allocate(trigs_y(N_Y*2,0:nthreads-1))
-#ifndef MPI
-      allocate(work_x(N_X+2,N_Y))
-      allocate(work_y(N_Y,N_X/2+1))
-#else
-      allocate(work_x(N_X+2,ny1))
-      allocate(work_y(N_Y,nx2))
-#endif
-#endif
       allocate(its2(0:nthreads-1))
       allocate(ite2(0:nthreads-1))
       allocate(itn2(0:nthreads-1))
@@ -1043,7 +943,6 @@ contains
       end do
 ! ==============================================================================
 
-#ifndef __SX__
 #ifndef MPI
       allocate(realbuf(N_X,N_Y))
       allocate(xfftbuf(N_X/2+1,N_Y))
@@ -1052,17 +951,6 @@ contains
       allocate(realbuf(N_X,ny1))
       allocate(xfftbuf(N_X/2+1,ny1))
       allocate(yfftbuf(N_Y,nx2))
-#endif
-#else
-#ifndef MPI
-      allocate(realbuf(N_X+2,N_Y))
-      allocate(xfftbuf(N_X/2+1,N_Y))
-      allocate(yfftbuf(N_Y+1,N_X/2+1))
-#else
-      allocate(realbuf(N_X+16,ny1))
-      allocate(xfftbuf(N_X/2+1,ny1))
-      allocate(yfftbuf(N_Y+16,nx2))
-#endif
 #endif
 
       ! First touch!
@@ -1086,7 +974,6 @@ contains
       end do
 
       do it = 0, nthreads-1
-#ifndef __SX__
          call dfftw_plan_many_dft_r2c(xplan_forward(it), 1, N_X, jtn1(it), &
                                       realbuf(1,jts1(it)), 0, 1, N_X,      &
                                       xfftbuf(1,jts1(it)), 0, 1, N_X/2+1,  &
@@ -1106,10 +993,6 @@ contains
                                   yfftbuf(1,its2(it)), 0, 1, N_Y,       &
                                   yfftbuf(1,its2(it)), 0, 1, N_Y,       &
                                   FFTW_BACKWARD, FFTW_MEASURE)
-#else
-         call DFRMFB(N_X,jtn1(it),realbuf(1,jts1(it)),1,N_X+16,0,ifax_x(1,it),trigs_x(1,it),work_x(1,jts1(it)),ierr)
-         call ZFCMFB(N_Y,itn2(it),yfftbuf(1,its2(it)),1,N_Y+16,0,ifax_y(1,it),trigs_y(1,it),work_y(1,its2(it)),ierr)
-#endif
       end do
 ! ==============================================================================
 ! === Initialize FFT End =======================================================
@@ -1124,41 +1007,20 @@ contains
 #ifdef MPI
       if(myrank == 0) then
 #endif
-#ifndef PIXELIN
-#ifndef NFSUPPORT
-      call read_gmt_grd_hdr(dg%my%bath_file,nlon_dummy,nlat_dummy,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max)
-#else
-      call read_gmt_grd_hdr(dg%my%bath_file,nlon_dummy,nlat_dummy,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-      call read_gmt_grd_hdr(dg%my%bath_file,nlon_dummy,nlat_dummy,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,nxorg,nyorg)
-#else
       call read_gmt_grd_hdr(dg%my%bath_file,nlon_dummy,nlat_dummy,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,nxorg,nyorg,formatid)
-#endif
-#endif
 #ifdef MPI
       end if
 #endif
 #ifdef MPI
-#ifndef MULTI
-      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, __MPICOMM__, ierr)
+      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, __MPICOMM__, ierr)
 #endif
 #ifndef CARTESIAN
       m_dy  = y_inc*DEG2RAD*rote ! Average Y space step
 
       lon1 = x_min
 #ifdef MPI
-#ifndef MULTI
-      call MPI_Allreduce(MPI_IN_PLACE, lon1, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(MPI_IN_PLACE, lon1, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(MPI_IN_PLACE, lon1, 1, MPI_DOUBLE_PRECISION, MPI_MIN, __MPICOMM__, ierr)
 #endif
       lat2 = lat1
       lon2 = lon1 + x_inc
@@ -1200,44 +1062,26 @@ contains
       end do
 
       ! Forward FFT on X-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          call dfftw_execute_dft_r2c(xplan_forward(it),realbuf(1,jts1(it)),xfftbuf(1,jts1(it)))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call DFRMBF(N_X,jtn1(it),realbuf(1,jts1(it)),1,N_X+2,1,ifax_x(1,it),trigs_x(1,it),work_x(1,jts1(it)),ierr)
-      end do
-#endif
 
       ! Transposiion: (N_X,N_Y) -> (N_Y,N_X)
 !$omp do private(i, j)
       do it = 0, nthreads-1
          do i = its2(it), ite2(it)
             do j = 1, N_Y
-#ifndef __SX__
                yfftbuf(j,i) = xfftbuf(i,j)
-#else
-               yfftbuf(j,i) = dcmplx(realbuf(2*i-1,j),realbuf(2*i,j))
-#endif
             end do
          end do
       end do
 
       ! Forward FFT on Y-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          call dfftw_execute(yplan_forward(it))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call ZFCMBF(N_Y,itn2(it),yfftbuf(1,its2(it)),1,N_Y+1,1,ifax_y(1,it),trigs_y(1,it),work_y(1,its2(it)),ierr)
-      end do
-#endif
 
 !$omp single
       dk_x = 2.0d0*M_PI/(m_dx*dble(N_X))
@@ -1259,45 +1103,26 @@ contains
       end do
 
       ! Backward FFT on Y-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          call dfftw_execute(yplan_backward(it))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call ZFCMBF(N_Y,itn2(it),yfftbuf(1,its2(it)),1,N_Y+1,-1,ifax_y(1,it),trigs_y(1,it),work_y(1,its2(it)),ierr)
-      end do
-#endif
 
       ! Transposiion: (N_Y,N_X) -> (N_X,N_Y)
 !$omp do private(j, i)
       do it = 0, nthreads-1
          do j = jts1(it), jte1(it)
             do i = 1, N_X/2+1
-#ifndef __SX__
                xfftbuf(i,j) = yfftbuf(j,i)
-#else
-               realbuf(2*i-1,j) = dble (yfftbuf(j,i))
-               realbuf(2*i,  j) = dimag(yfftbuf(j,i))
-#endif
             end do
          end do
       end do
 
       ! Backward FFT on X-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          call dfftw_execute_dft_c2r(xplan_backward(it),xfftbuf(1,jts1(it)),realbuf(1,jts1(it)))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call DFRMBF(N_X,jtn1(it),realbuf(1,jts1(it)),1,N_X+2,-1,ifax_x(1,it),trigs_x(1,it),work_x(1,jts1(it)),ierr)
-      end do
-#endif
 
 !$omp do private(i)
       do j = 1, nlat
@@ -1332,11 +1157,7 @@ contains
 
 !$omp do private(i)
       do j = 1, ny1
-#ifndef __SX__
          do i = 1, N_X
-#else
-         do i = 1, N_X+16
-#endif
             realbuf(i,j) = 0.0d0
          end do
       end do
@@ -1355,20 +1176,12 @@ contains
       end do
 
       ! Forward FFT on X-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          call dfftw_execute_dft_r2c(xplan_forward(it),realbuf(1,jts1(it)),xfftbuf(1,jts1(it)))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call DFRMBF(N_X,jtn1(it),realbuf(1,jts1(it)),1,N_X+16,1,ifax_x(1,it),trigs_x(1,it),work_x(1,jts1(it)),ierr)
-      end do
-#endif
 
       ! Transposiion: (N_X,ny1) -> (N_Y,nx2)
-#ifndef __SX__
 !$omp do private(j, ind)
       do i = 1, N_X/2+1
          do j = 1, ny1
@@ -1376,33 +1189,15 @@ contains
             sendbuf2(ind) = xfftbuf(i,j)
          end do
       end do
-#else
-!$omp do private(i, ind)
-      do j = 1, ny1
-         do i = 1, N_X/2+1
-            ind = ny1*(i-1) + j
-            sendbuf2(ind) = dcmplx(realbuf(2*i-1,j),realbuf(2*i,j))
-         end do
-      end do
-#endif
 
 !$omp single
-#ifndef MULTI
       call MPI_Alltoallv(sendbuf2, sendcounts2, sdispls2, MPI_DOUBLE_COMPLEX, &
-                         recvbuf2, recvcounts2, rdispls2, MPI_DOUBLE_COMPLEX, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Alltoallv(sendbuf2, sendcounts2, sdispls2, MPI_DOUBLE_COMPLEX, &
-                         recvbuf2, recvcounts2, rdispls2, MPI_DOUBLE_COMPLEX, MPI_MEMBER_WORLD, ierr)
-#endif
+                         recvbuf2, recvcounts2, rdispls2, MPI_DOUBLE_COMPLEX, __MPICOMM__, ierr)
 !$omp end single
 
 !$omp do private(j)
       do i = 1, nx2
-#ifndef __SX__
          do j = 1, N_Y
-#else
-         do j = 1, N_Y+16
-#endif
             yfftbuf(j,i) = dcmplx(0.0d0,0.0d0)
          end do
       end do
@@ -1421,17 +1216,10 @@ contains
       end do
 
       ! Forward FFT on Y-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          call dfftw_execute(yplan_forward(it))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call ZFCMBF(N_Y,itn2(it),yfftbuf(1,its2(it)),1,N_Y+16,1,ifax_y(1,it),trigs_y(1,it),work_y(1,its2(it)),ierr)
-      end do
-#endif
 
       ! Calc. F(hz)*F(g)
 !$omp single
@@ -1458,17 +1246,10 @@ contains
       end do
 
       ! Backward FFT on Y-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          call dfftw_execute(yplan_backward(it))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call ZFCMBF(N_Y,itn2(it),yfftbuf(1,its2(it)),1,N_Y+16,-1,ifax_y(1,it),trigs_y(1,it),work_y(1,its2(it)),ierr)
-      end do
-#endif
 
       ! Transposiion: (N_Y,nx2) -> (N_X,ny1)
 !$omp do private(yst, ylen, i, j, ind, j_)
@@ -1485,16 +1266,10 @@ contains
       end do
 
 !$omp single
-#ifndef MULTI
       call MPI_Alltoallv(recvbuf2, recvcounts2, rdispls2, MPI_DOUBLE_COMPLEX, &
-                         sendbuf2, sendcounts2, sdispls2, MPI_DOUBLE_COMPLEX, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Alltoallv(recvbuf2, recvcounts2, rdispls2, MPI_DOUBLE_COMPLEX, &
-                         sendbuf2, sendcounts2, sdispls2, MPI_DOUBLE_COMPLEX, MPI_MEMBER_WORLD, ierr)
-#endif
+                         sendbuf2, sendcounts2, sdispls2, MPI_DOUBLE_COMPLEX, __MPICOMM__, ierr)
 !$omp end single
 
-#ifndef __SX__
 !$omp do private(i, ind)
       do j = 1, ny1
          do i = 1, N_X/2+1
@@ -1502,29 +1277,12 @@ contains
             xfftbuf(i,j) = sendbuf2(ind)
          end do
       end do
-#else
-!$omp do private(i, ind)
-      do j = 1, ny1
-         do i = 1, N_X/2+1
-            ind = ny1*(i-1) + j
-            realbuf(2*i-1,j) = dble (sendbuf2(ind))
-            realbuf(2*i,  j) = dimag(sendbuf2(ind))
-         end do
-      end do
-#endif
 
       ! Backward FFT on X-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          call dfftw_execute_dft_c2r(xplan_backward(it),xfftbuf(1,jts1(it)),realbuf(1,jts1(it)))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call DFRMBF(N_X,jtn1(it),realbuf(1,jts1(it)),1,N_X+16,-1,ifax_x(1,it),trigs_x(1,it),work_x(1,jts1(it)),ierr)
-      end do
-#endif
 
       ! Transposiion: (N_X,ny1) -> (nx0,ny0)
 !$omp do private(xst, xlen, j, i, ind, i_)
@@ -1563,7 +1321,6 @@ contains
 ! ==============================================================================
 ! === Finalize FFT Begin =======================================================
 ! ==============================================================================
-#ifndef __SX__
       do it = 0, nthreads-1
          call dfftw_destroy_plan(xplan_forward(it))
          call dfftw_destroy_plan(yplan_forward(it))
@@ -1575,14 +1332,6 @@ contains
       deallocate(yplan_forward)
       deallocate(xplan_backward)
       deallocate(yplan_backward)
-#else
-      deallocate(ifax_x)
-      deallocate(ifax_y)
-      deallocate(trigs_x)
-      deallocate(trigs_y)
-      deallocate(work_x)
-      deallocate(work_y)
-#endif
 
       deallocate(its2)
       deallocate(ite2)
@@ -1650,12 +1399,8 @@ contains
 #endif
       real(kind=REAL_BYTE) :: x_inc, y_inc, x_min, x_max, y_min, y_max, z_min, z_max
       integer(kind=4) :: nlon_dummy, nlat_dummy, num, i, j
-#ifdef PIXELIN
       integer(kind=4) :: nxorg, nyorg
-#endif
-#ifdef NFSUPPORT
       integer(kind=4) :: formatid
-#endif
 
 #ifdef MPI
       ix = dg%my%ix
@@ -1693,30 +1438,13 @@ contains
 #ifdef MPI
       if(myrank == 0) then
 #endif
-#ifndef PIXELIN
-#ifndef NFSUPPORT
-      call read_gmt_grd_hdr(dg%my%bath_file,nlon_dummy,nlat_dummy,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max)
-#else
-      call read_gmt_grd_hdr(dg%my%bath_file,nlon_dummy,nlat_dummy,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-      call read_gmt_grd_hdr(dg%my%bath_file,nlon_dummy,nlat_dummy,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,nxorg,nyorg)
-#else
       call read_gmt_grd_hdr(dg%my%bath_file,nlon_dummy,nlat_dummy,x_inc,y_inc,x_min,x_max,y_min,y_max,z_min,z_max,nxorg,nyorg,formatid)
-#endif
-#endif
 #ifdef MPI
       end if
 #endif
 #ifdef MPI
-#ifndef MULTI
-      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Bcast(x_inc, 1, REAL_MPI, 0, __MPICOMM__, ierr)
+      call MPI_Bcast(y_inc, 1, REAL_MPI, 0, __MPICOMM__, ierr)
 #endif
 
 ! === get-large-area.f90 2015/06/19 ============================================
@@ -1732,13 +1460,8 @@ contains
       end do
 !$omp single
 #ifdef MPI
-#ifndef MULTI
-      call MPI_Allreduce(MPI_IN_PLACE, disp_max, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, disp_min, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(MPI_IN_PLACE, disp_max, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, disp_min, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(MPI_IN_PLACE, disp_max, 1, MPI_DOUBLE_PRECISION, MPI_MAX, __MPICOMM__, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, disp_min, 1, MPI_DOUBLE_PRECISION, MPI_MIN, __MPICOMM__, ierr)
 #endif
 
       imin =  huge(imin)
@@ -1798,25 +1521,14 @@ contains
       if(imax > -huge(imax)) imax = kx + imax - 1
       if(jmin <  huge(jmin)) jmin = ky + jmin - 1
       if(jmax > -huge(imax)) jmax = ky + jmax - 1
-#ifndef MULTI
-      call MPI_Allreduce(MPI_IN_PLACE, imin, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, imax, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, jmin, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, jmax, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(MPI_IN_PLACE, imin, 1, MPI_INTEGER, MPI_MIN, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, imax, 1, MPI_INTEGER, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, jmin, 1, MPI_INTEGER, MPI_MIN, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, jmax, 1, MPI_INTEGER, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(MPI_IN_PLACE, imin, 1, MPI_INTEGER, MPI_MIN, __MPICOMM__, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, imax, 1, MPI_INTEGER, MPI_MAX, __MPICOMM__, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, jmin, 1, MPI_INTEGER, MPI_MIN, __MPICOMM__, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, jmax, 1, MPI_INTEGER, MPI_MAX, __MPICOMM__, ierr)
 #ifndef CARTESIAN
       lat1 = (dble(jmax) + dble(jmin))/2.0d0
       lat1 = y_min + y_inc*(lat1 - 1.0d0)
-#ifndef MULTI
-      call MPI_Allreduce(MPI_IN_PLACE, lat1, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(MPI_IN_PLACE, lat1, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(MPI_IN_PLACE, lat1, 1, MPI_DOUBLE_PRECISION, MPI_MIN, __MPICOMM__, ierr)
 #endif
       imin = imin - kx + 1; imin = max(imin, ibias + 1)
       imax = imax - kx + 1; imax = min(imax, ibias + nx0)
@@ -1854,21 +1566,12 @@ contains
       end do
 !$omp single
 #ifdef MPI
-#ifndef MULTI
 #ifndef QUAD
-      call MPI_Allreduce(MPI_IN_PLACE, h0, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, h0, 1, MPI_DOUBLE_PRECISION, MPI_SUM, __MPICOMM__, ierr)
 #else
-      call MPI_Allgather(h0q, 1, MPI_REAL16, qbuf, 1, MPI_REAL16, MPI_COMM_WORLD, ierr)
+      call MPI_Allgather(h0q, 1, MPI_REAL16, qbuf, 1, MPI_REAL16, __MPICOMM__, ierr)
 #endif
-      call MPI_Allreduce(MPI_IN_PLACE, num, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-#ifndef QUAD
-      call MPI_Allreduce(MPI_IN_PLACE, h0, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#else
-      call MPI_Allgather(h0q, 1, MPI_REAL16, qbuf, 1, MPI_REAL16, MPI_MEMBER_WORLD, ierr)
-#endif
-      call MPI_Allreduce(MPI_IN_PLACE, num, 1, MPI_INTEGER, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(MPI_IN_PLACE, num, 1, MPI_INTEGER, MPI_SUM, __MPICOMM__, ierr)
 #ifdef QUAD
       h0q = 0.0q0
       do i = 0, nprocs-1

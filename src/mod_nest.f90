@@ -1649,11 +1649,7 @@ contains
          !*  allreduce   *
          !*==============*
 !$omp single
-#ifndef MULTI
-         call MPI_Allreduce(xfbuf, xcbuf, fxo%np+fyo%np, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-         call MPI_Allreduce(xfbuf, xcbuf, fxo%np+fyo%np, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+         call MPI_Allreduce(xfbuf, xcbuf, fxo%np+fyo%np, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
          if(ierr /= 0) then
             select case (ierr)
                case(MPI_ERR_BUFFER)
@@ -1759,21 +1755,12 @@ contains
          !*  alltoallv   *
          !*==============*
 #ifndef A2A3D
-#ifndef MULTI
 #ifndef SINGLE_A2A
          call MPI_Alltoallv(xfbuf, fxo%sendcnts0, fxo%sdispls0, REAL_MPI, &
-                            xcbuf, fxo%recvcnts0, fxo%rdispls0, REAL_MPI, MPI_COMM_WORLD, ierr)
+                            xcbuf, fxo%recvcnts0, fxo%rdispls0, REAL_MPI, __MPICOMM__, ierr)
 #endif
          call MPI_Alltoallv(yfbuf, fyo%sendcnts0, fyo%sdispls0, REAL_MPI, &
-                            ycbuf, fyo%recvcnts0, fyo%rdispls0, REAL_MPI, MPI_COMM_WORLD, ierr)
-#else
-#ifndef SINGLE_A2A
-         call MPI_Alltoallv(xfbuf, fxo%sendcnts0, fxo%sdispls0, REAL_MPI, &
-                            xcbuf, fxo%recvcnts0, fxo%rdispls0, REAL_MPI, MPI_MEMBER_WORLD, ierr)
-#endif
-         call MPI_Alltoallv(yfbuf, fyo%sendcnts0, fyo%sdispls0, REAL_MPI, &
-                            ycbuf, fyo%recvcnts0, fyo%rdispls0, REAL_MPI, MPI_MEMBER_WORLD, ierr)
-#endif
+                            ycbuf, fyo%recvcnts0, fyo%rdispls0, REAL_MPI, __MPICOMM__, ierr)
 #else
 #ifndef SINGLE_A2A
          call A2A3D_execute(fxo%snp0, xfbuf, fxo%rnp0, xcbuf, fxo%handler0)
@@ -1899,11 +1886,7 @@ contains
             !*  allreduce   *
             !*==============*
 !$omp single
-#ifndef MULTI
-            call MPI_Allreduce(zfbuf, zcbuf, hzo%np, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-            call MPI_Allreduce(zfbuf, zcbuf, hzo%np, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+            call MPI_Allreduce(zfbuf, zcbuf, hzo%np, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
             if(ierr /= 0) then
                select case (ierr)
                   case(MPI_ERR_BUFFER)
@@ -1972,13 +1955,8 @@ contains
             !*  alltoallv   *
             !*==============*
 #ifndef A2A3D
-#ifndef MULTI
             call MPI_Alltoallv(zfbuf, hzo%sendcnts0, hzo%sdispls0, REAL_MPI, &
-                               zcbuf, hzo%recvcnts0, hzo%rdispls0, REAL_MPI, MPI_COMM_WORLD, ierr)
-#else
-            call MPI_Alltoallv(zfbuf, hzo%sendcnts0, hzo%sdispls0, REAL_MPI, &
-                               zcbuf, hzo%recvcnts0, hzo%rdispls0, REAL_MPI, MPI_MEMBER_WORLD, ierr)
-#endif
+                               zcbuf, hzo%recvcnts0, hzo%rdispls0, REAL_MPI, __MPICOMM__, ierr)
 #else
             call A2A3D_execute(hzo%snp0, zfbuf, hzo%rnp0, zcbuf, hzo%handler0)
 #endif
@@ -2266,11 +2244,7 @@ contains
          !*  allreduce   *
          !*==============*
 !$omp single
-#ifndef MULTI
-         call MPI_Allreduce(xcbuf, xfbuf, fxi%np+fyi%np, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-         call MPI_Allreduce(xcbuf, xfbuf, fxi%np+fyi%np, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+         call MPI_Allreduce(xcbuf, xfbuf, fxi%np+fyi%np, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
          if(ierr /= 0) then
             select case (ierr)
                case(MPI_ERR_BUFFER)
@@ -2405,29 +2379,16 @@ contains
          !*  alltoallv   *
          !*==============*
 #ifndef A2A3D
-#ifndef MULTI
 #ifndef SINGLE_A2A
          call MPI_Alltoallv(xcbuf0, fxi%sendcnts0, fxi%sdispls0, REAL_MPI, &
-                            xfbuf0, fxi%recvcnts0, fxi%rdispls0, REAL_MPI, MPI_COMM_WORLD, ierr)
+                            xfbuf0, fxi%recvcnts0, fxi%rdispls0, REAL_MPI, __MPICOMM__, ierr)
          call MPI_Alltoallv(xcbuf1, fxi%sendcnts1, fxi%sdispls1, REAL_MPI, &
-                            xfbuf1, fxi%recvcnts1, fxi%rdispls1, REAL_MPI, MPI_COMM_WORLD, ierr)
+                            xfbuf1, fxi%recvcnts1, fxi%rdispls1, REAL_MPI, __MPICOMM__, ierr)
          call MPI_Alltoallv(ycbuf0, fyi%sendcnts0, fyi%sdispls0, REAL_MPI, &
-                            yfbuf0, fyi%recvcnts0, fyi%rdispls0, REAL_MPI, MPI_COMM_WORLD, ierr)
+                            yfbuf0, fyi%recvcnts0, fyi%rdispls0, REAL_MPI, __MPICOMM__, ierr)
 #endif
          call MPI_Alltoallv(ycbuf1, fyi%sendcnts1, fyi%sdispls1, REAL_MPI, &
-                            yfbuf1, fyi%recvcnts1, fyi%rdispls1, REAL_MPI, MPI_COMM_WORLD, ierr)
-#else
-#ifndef SINGLE_A2A
-         call MPI_Alltoallv(xcbuf0, fxi%sendcnts0, fxi%sdispls0, REAL_MPI, &
-                            xfbuf0, fxi%recvcnts0, fxi%rdispls0, REAL_MPI, MPI_MEMBER_WORLD, ierr)
-         call MPI_Alltoallv(xcbuf1, fxi%sendcnts1, fxi%sdispls1, REAL_MPI, &
-                            xfbuf1, fxi%recvcnts1, fxi%rdispls1, REAL_MPI, MPI_MEMBER_WORLD, ierr)
-         call MPI_Alltoallv(ycbuf0, fyi%sendcnts0, fyi%sdispls0, REAL_MPI, &
-                            yfbuf0, fyi%recvcnts0, fyi%rdispls0, REAL_MPI, MPI_MEMBER_WORLD, ierr)
-#endif
-         call MPI_Alltoallv(ycbuf1, fyi%sendcnts1, fyi%sdispls1, REAL_MPI, &
-                            yfbuf1, fyi%recvcnts1, fyi%rdispls1, REAL_MPI, MPI_MEMBER_WORLD, ierr)
-#endif
+                            yfbuf1, fyi%recvcnts1, fyi%rdispls1, REAL_MPI, __MPICOMM__, ierr)
 #else
 #ifndef SINGLE_A2A
          call A2A3D_execute(fxi%snp0, xcbuf0, fxi%rnp0, xfbuf0, fxi%handler0)
@@ -2523,45 +2484,18 @@ contains
             if(iand(fg%my%has_boundary, NORTH_BOUND) == 0) jst2 = jst2 + 1
             if(iand(fg%my%has_boundary, SOUTH_BOUND) == 0) jen2 = jen2 - 1
 ! ==============================================================================
-#ifndef MULTI
 ! === Upwind3 ==================================================================
-!           call MPI_Irecv(recv_from_n, 1, REAL_MPI, north_rank, 0, MPI_COMM_WORLD, ireq11(1), ierr)
-!           call MPI_Irecv(recv_from_s, 1, REAL_MPI, south_rank, 0, MPI_COMM_WORLD, ireq21(1), ierr)
-!           send_to_n = fxf(0,jst)
-!           call MPI_Isend(send_to_n, 1, REAL_MPI, north_rank, 0, MPI_COMM_WORLD, ireq11(2), ierr)
-!           send_to_s = fxf(0,jen)
-!           call MPI_Isend(send_to_s, 1, REAL_MPI, south_rank, 0, MPI_COMM_WORLD, ireq21(2), ierr)
-            call MPI_Irecv(recv_from_n, 3, REAL_MPI, north_rank, 0, MPI_COMM_WORLD, ireq11(1), ierr)
-            call MPI_Irecv(recv_from_s, 3, REAL_MPI, south_rank, 0, MPI_COMM_WORLD, ireq21(1), ierr)
+            call MPI_Irecv(recv_from_n, 3, REAL_MPI, north_rank, 0, __MPICOMM__, ireq11(1), ierr)
+            call MPI_Irecv(recv_from_s, 3, REAL_MPI, south_rank, 0, __MPICOMM__, ireq21(1), ierr)
             send_to_n(1) = fxf(0, jst)
             send_to_n(2) = fxf(-2,jst)
             send_to_n(3) = fyf(-1,jst2)
-            call MPI_Isend(send_to_n, 3, REAL_MPI, north_rank, 0, MPI_COMM_WORLD, ireq11(2), ierr)
+            call MPI_Isend(send_to_n, 3, REAL_MPI, north_rank, 0, __MPICOMM__, ireq11(2), ierr)
             send_to_s(1) = fxf(0, jen)
             send_to_s(2) = fxf(-2,jen)
             send_to_s(3) = fyf(-1,jen2)
-            call MPI_Isend(send_to_s, 3, REAL_MPI, south_rank, 0, MPI_COMM_WORLD, ireq21(2), ierr)
+            call MPI_Isend(send_to_s, 3, REAL_MPI, south_rank, 0, __MPICOMM__, ireq21(2), ierr)
 ! ==============================================================================
-#else
-! === Upwind3 ==================================================================
-!           call MPI_Irecv(recv_from_n, 1, REAL_MPI, north_rank, 0, MPI_MEMBER_WORLD, ireq11(1), ierr)
-!           call MPI_Irecv(recv_from_s, 1, REAL_MPI, south_rank, 0, MPI_MEMBER_WORLD, ireq21(1), ierr)
-!           send_to_n = fxf(0,jst)
-!           call MPI_Isend(send_to_n, 1, REAL_MPI, north_rank, 0, MPI_MEMBER_WORLD, ireq11(2), ierr)
-!           send_to_s = fxf(0,jen)
-!           call MPI_Isend(send_to_s, 1, REAL_MPI, south_rank, 0, MPI_MEMBER_WORLD, ireq21(2), ierr)
-            call MPI_Irecv(recv_from_n, 3, REAL_MPI, north_rank, 0, MPI_MEMBER_WORLD, ireq11(1), ierr)
-            call MPI_Irecv(recv_from_s, 3, REAL_MPI, south_rank, 0, MPI_MEMBER_WORLD, ireq21(1), ierr)
-            send_to_n(1) = fxf(0, jst)
-            send_to_n(2) = fxf(-2,jst)
-            send_to_n(3) = fyf(-1,jst2)
-            call MPI_Isend(send_to_n, 3, REAL_MPI, north_rank, 0, MPI_MEMBER_WORLD, ireq11(2), ierr)
-            send_to_s(1) = fxf(0, jen)
-            send_to_s(2) = fxf(-2,jen)
-            send_to_s(3) = fyf(-1,jen2)
-            call MPI_Isend(send_to_s, 3, REAL_MPI, south_rank, 0, MPI_MEMBER_WORLD, ireq21(2), ierr)
-! ==============================================================================
-#endif
          end if
 
          if(iand(fg%my%has_boundary, EAST_BOUND) /= 0) then
@@ -2575,41 +2509,16 @@ contains
             if(iand(fg%my%has_boundary, NORTH_BOUND) == 0) jst2 = jst2 + 1
             if(iand(fg%my%has_boundary, SOUTH_BOUND) == 0) jen2 = jen2 - 1
 ! ==============================================================================
-#ifndef MULTI
 ! === Upwind3 ==================================================================
-!           call MPI_Irecv(recv_from_n, 1, REAL_MPI, north_rank, 1, MPI_COMM_WORLD, ireq12(1), ierr)
-!           call MPI_Irecv(recv_from_s, 1, REAL_MPI, south_rank, 1, MPI_COMM_WORLD, ireq22(1), ierr)
-!           send_to_n = fxf(fg%my%nx,jst)
-!           call MPI_Isend(send_to_n, 1, REAL_MPI, north_rank, 1, MPI_COMM_WORLD, ireq12(2), ierr)
-!           send_to_s = fxf(fg%my%nx,jen)
-!           call MPI_Isend(send_to_s, 1, REAL_MPI, south_rank, 1, MPI_COMM_WORLD, ireq22(2), ierr)
-            call MPI_Irecv(recv_from_n, 2, REAL_MPI, north_rank, 1, MPI_COMM_WORLD, ireq12(1), ierr)
-            call MPI_Irecv(recv_from_s, 2, REAL_MPI, south_rank, 1, MPI_COMM_WORLD, ireq22(1), ierr)
+            call MPI_Irecv(recv_from_n, 2, REAL_MPI, north_rank, 1, __MPICOMM__, ireq12(1), ierr)
+            call MPI_Irecv(recv_from_s, 2, REAL_MPI, south_rank, 1, __MPICOMM__, ireq22(1), ierr)
             send_to_n(1) = fxf(fg%my%nx,  jst)
             send_to_n(2) = fyf(fg%my%nx+1,jst2)
-            call MPI_Isend(send_to_n, 2, REAL_MPI, north_rank, 1, MPI_COMM_WORLD, ireq12(2), ierr)
+            call MPI_Isend(send_to_n, 2, REAL_MPI, north_rank, 1, __MPICOMM__, ireq12(2), ierr)
             send_to_s(1) = fxf(fg%my%nx,  jen)
             send_to_s(2) = fyf(fg%my%nx+1,jen2)
-            call MPI_Isend(send_to_s, 2, REAL_MPI, south_rank, 1, MPI_COMM_WORLD, ireq22(2), ierr)
+            call MPI_Isend(send_to_s, 2, REAL_MPI, south_rank, 1, __MPICOMM__, ireq22(2), ierr)
 ! ==============================================================================
-#else
-! === Upwind3 ==================================================================
-!           call MPI_Irecv(recv_from_n, 1, REAL_MPI, north_rank, 1, MPI_MEMBER_WORLD, ireq12(1), ierr)
-!           call MPI_Irecv(recv_from_s, 1, REAL_MPI, south_rank, 1, MPI_MEMBER_WORLD, ireq22(1), ierr)
-!           send_to_n = fxf(fg%my%nx,jst)
-!           call MPI_Isend(send_to_n, 1, REAL_MPI, north_rank, 1, MPI_MEMBER_WORLD, ireq12(2), ierr)
-!           send_to_s = fxf(fg%my%nx,jen)
-!           call MPI_Isend(send_to_s, 1, REAL_MPI, south_rank, 1, MPI_MEMBER_WORLD, ireq22(2), ierr)
-            call MPI_Irecv(recv_from_n, 2, REAL_MPI, north_rank, 1, MPI_MEMBER_WORLD, ireq12(1), ierr)
-            call MPI_Irecv(recv_from_s, 2, REAL_MPI, south_rank, 1, MPI_MEMBER_WORLD, ireq22(1), ierr)
-            send_to_n(1) = fxf(fg%my%nx,  jst)
-            send_to_n(2) = fyf(fg%my%nx+1,jst2)
-            call MPI_Isend(send_to_n, 2, REAL_MPI, north_rank, 1, MPI_MEMBER_WORLD, ireq12(2), ierr)
-            send_to_s(1) = fxf(fg%my%nx,  jen)
-            send_to_s(2) = fyf(fg%my%nx+1,jen2)
-            call MPI_Isend(send_to_s, 2, REAL_MPI, south_rank, 1, MPI_MEMBER_WORLD, ireq22(2), ierr)
-! ==============================================================================
-#endif
          end if
          
          ! Num. of shift indices to first element has a value.
@@ -2635,45 +2544,18 @@ contains
             if(iand(fg%my%has_boundary, WEST_BOUND) == 0) ist2 = ist2 + 1
             if(iand(fg%my%has_boundary, EAST_BOUND) == 0) ien2 = ien2 - 1
 ! ==============================================================================
-#ifndef MULTI
 ! === Upwind3 ==================================================================
-!           call MPI_Irecv(recv_from_w, 1, REAL_MPI, west_rank, 2, MPI_COMM_WORLD, ireq13(1), ierr)
-!           call MPI_Irecv(recv_from_e, 1, REAL_MPI, east_rank, 2, MPI_COMM_WORLD, ireq23(1), ierr)
-!           send_to_w = fyf(ist,0)
-!           call MPI_Isend(send_to_w, 1, REAL_MPI, west_rank, 2, MPI_COMM_WORLD, ireq13(2), ierr)
-!           send_to_e = fyf(ien,0)
-!           call MPI_Isend(send_to_e, 1, REAL_MPI, east_rank, 2, MPI_COMM_WORLD, ireq23(2), ierr)
-            call MPI_Irecv(recv_from_w, 3, REAL_MPI, west_rank, 2, MPI_COMM_WORLD, ireq13(1), ierr)
-            call MPI_Irecv(recv_from_e, 3, REAL_MPI, east_rank, 2, MPI_COMM_WORLD, ireq23(1), ierr)
+            call MPI_Irecv(recv_from_w, 3, REAL_MPI, west_rank, 2, __MPICOMM__, ireq13(1), ierr)
+            call MPI_Irecv(recv_from_e, 3, REAL_MPI, east_rank, 2, __MPICOMM__, ireq23(1), ierr)
             send_to_w(1) = fyf(ist, 0)
             send_to_w(2) = fxf(ist2,-1)
             send_to_w(3) = fyf(ist,-2)
-            call MPI_Isend(send_to_w, 3, REAL_MPI, west_rank, 2, MPI_COMM_WORLD, ireq13(2), ierr)
+            call MPI_Isend(send_to_w, 3, REAL_MPI, west_rank, 2, __MPICOMM__, ireq13(2), ierr)
             send_to_e(1) = fyf(ien, 0)
             send_to_e(2) = fxf(ien2,-1)
             send_to_e(3) = fyf(ien,-2)
-            call MPI_Isend(send_to_e, 3, REAL_MPI, east_rank, 2, MPI_COMM_WORLD, ireq23(2), ierr)
+            call MPI_Isend(send_to_e, 3, REAL_MPI, east_rank, 2, __MPICOMM__, ireq23(2), ierr)
 ! ==============================================================================
-#else
-! === Upwind3 ==================================================================
-!           call MPI_Irecv(recv_from_w, 1, REAL_MPI, west_rank, 2, MPI_MEMBER_WORLD, ireq13(1), ierr)
-!           call MPI_Irecv(recv_from_e, 1, REAL_MPI, east_rank, 2, MPI_MEMBER_WORLD, ireq23(1), ierr)
-!           send_to_w = fyf(ist,0)
-!           call MPI_Isend(send_to_w, 1, REAL_MPI, west_rank, 2, MPI_MEMBER_WORLD, ireq13(2), ierr)
-!           send_to_e = fyf(ien,0)
-!           call MPI_Isend(send_to_e, 1, REAL_MPI, east_rank, 2, MPI_MEMBER_WORLD, ireq23(2), ierr)
-            call MPI_Irecv(recv_from_w, 3, REAL_MPI, west_rank, 2, MPI_MEMBER_WORLD, ireq13(1), ierr)
-            call MPI_Irecv(recv_from_e, 3, REAL_MPI, east_rank, 2, MPI_MEMBER_WORLD, ireq23(1), ierr)
-            send_to_w(1) = fyf(ist, 0)
-            send_to_w(2) = fxf(ist2,-1)
-            send_to_w(3) = fyf(ist,-2)
-            call MPI_Isend(send_to_w, 3, REAL_MPI, west_rank, 2, MPI_MEMBER_WORLD, ireq13(2), ierr)
-            send_to_e(1) = fyf(ien, 0)
-            send_to_e(2) = fxf(ien2,-1)
-            send_to_e(3) = fyf(ien,-2)
-            call MPI_Isend(send_to_e, 3, REAL_MPI, east_rank, 2, MPI_MEMBER_WORLD, ireq23(2), ierr)
-! ==============================================================================
-#endif
          end if
 
          if(iand(fg%my%has_boundary, SOUTH_BOUND) /= 0) then
@@ -2687,41 +2569,16 @@ contains
             if(iand(fg%my%has_boundary, WEST_BOUND) == 0) ist2 = ist2 + 1
             if(iand(fg%my%has_boundary, EAST_BOUND) == 0) ien2 = ien2 - 1
 ! ==============================================================================
-#ifndef MULTI
 ! === Upwind3 ==================================================================
-!           call MPI_Irecv(recv_from_w, 1, REAL_MPI, west_rank, 3, MPI_COMM_WORLD, ireq14(1), ierr)
-!           call MPI_Irecv(recv_from_e, 1, REAL_MPI, east_rank, 3, MPI_COMM_WORLD, ireq24(1), ierr)
-!           send_to_w = fyf(ist,fg%my%ny)
-!           call MPI_Isend(send_to_w, 1, REAL_MPI, west_rank, 3, MPI_COMM_WORLD, ireq14(2), ierr)
-!           send_to_e = fyf(ien,fg%my%ny)
-!           call MPI_Isend(send_to_e, 1, REAL_MPI, east_rank, 3, MPI_COMM_WORLD, ireq24(2), ierr)
-            call MPI_Irecv(recv_from_w, 2, REAL_MPI, west_rank, 3, MPI_COMM_WORLD, ireq14(1), ierr)
-            call MPI_Irecv(recv_from_e, 2, REAL_MPI, east_rank, 3, MPI_COMM_WORLD, ireq24(1), ierr)
+            call MPI_Irecv(recv_from_w, 2, REAL_MPI, west_rank, 3, __MPICOMM__, ireq14(1), ierr)
+            call MPI_Irecv(recv_from_e, 2, REAL_MPI, east_rank, 3, __MPICOMM__, ireq24(1), ierr)
             send_to_w(1) = fyf(ist,  fg%my%ny)
             send_to_w(2) = fxf(ist2,fg%my%ny+1)
-            call MPI_Isend(send_to_w, 2, REAL_MPI, west_rank, 3, MPI_COMM_WORLD, ireq14(2), ierr)
+            call MPI_Isend(send_to_w, 2, REAL_MPI, west_rank, 3, __MPICOMM__, ireq14(2), ierr)
             send_to_e(1) = fyf(ien,  fg%my%ny)
             send_to_e(2) = fxf(ien2,fg%my%ny+1)
-            call MPI_Isend(send_to_e, 2, REAL_MPI, east_rank, 3, MPI_COMM_WORLD, ireq24(2), ierr)
+            call MPI_Isend(send_to_e, 2, REAL_MPI, east_rank, 3, __MPICOMM__, ireq24(2), ierr)
 ! ==============================================================================
-#else
-! === Upwind3 ==================================================================
-!           call MPI_Irecv(recv_from_w, 1, REAL_MPI, west_rank, 3, MPI_MEMBER_WORLD, ireq14(1), ierr)
-!           call MPI_Irecv(recv_from_e, 1, REAL_MPI, east_rank, 3, MPI_MEMBER_WORLD, ireq24(1), ierr)
-!           send_to_w = fyf(ist,fg%my%ny)
-!           call MPI_Isend(send_to_w, 1, REAL_MPI, west_rank, 3, MPI_MEMBER_WORLD, ireq14(2), ierr)
-!           send_to_e = fyf(ien,fg%my%ny)
-!           call MPI_Isend(send_to_e, 1, REAL_MPI, east_rank, 3, MPI_MEMBER_WORLD, ireq24(2), ierr)
-            call MPI_Irecv(recv_from_w, 2, REAL_MPI, west_rank, 3, MPI_MEMBER_WORLD, ireq14(1), ierr)
-            call MPI_Irecv(recv_from_e, 2, REAL_MPI, east_rank, 3, MPI_MEMBER_WORLD, ireq24(1), ierr)
-            send_to_w(1) = fyf(ist,  fg%my%ny)
-            send_to_w(2) = fxf(ist2,fg%my%ny+1)
-            call MPI_Isend(send_to_w, 2, REAL_MPI, west_rank, 3, MPI_MEMBER_WORLD, ireq14(2), ierr)
-            send_to_e(1) = fyf(ien,  fg%my%ny)
-            send_to_e(2) = fxf(ien2,fg%my%ny+1)
-            call MPI_Isend(send_to_e, 2, REAL_MPI, east_rank, 3, MPI_MEMBER_WORLD, ireq24(2), ierr)
-! ==============================================================================
-#endif
          end if
 
          ! Num. of shift indices to first element has a value.
@@ -3285,11 +3142,7 @@ contains
          !*  allreduce   *
          !*==============*
 !$omp single
-#ifndef MULTI
-         call MPI_Allreduce(zcbuf, zfbuf, hzi%np, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-         call MPI_Allreduce(zcbuf, zfbuf, hzi%np, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+         call MPI_Allreduce(zcbuf, zfbuf, hzi%np, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
          if(ierr /= 0) then
             select case (ierr)
                case(MPI_ERR_BUFFER)
@@ -3406,21 +3259,12 @@ contains
          !*  alltoallv   *
          !*==============*
 #ifndef A2A3D
-#ifndef MULTI
 #ifndef SINGLE_A2A
          call MPI_Alltoallv(zcbuf0, hzi%sendcnts0, hzi%sdispls0, REAL_MPI, &
-                            zfbuf0, hzi%recvcnts0, hzi%rdispls0, REAL_MPI, MPI_COMM_WORLD, ierr)
+                            zfbuf0, hzi%recvcnts0, hzi%rdispls0, REAL_MPI, __MPICOMM__, ierr)
 #endif
          call MPI_Alltoallv(zcbuf1, hzi%sendcnts1, hzi%sdispls1, REAL_MPI, &
-                            zfbuf1, hzi%recvcnts1, hzi%rdispls1, REAL_MPI, MPI_COMM_WORLD, ierr)
-#else
-#ifndef SINGLE_A2A
-         call MPI_Alltoallv(zcbuf0, hzi%sendcnts0, hzi%sdispls0, REAL_MPI, &
-                            zfbuf0, hzi%recvcnts0, hzi%rdispls0, REAL_MPI, MPI_MEMBER_WORLD, ierr)
-#endif
-         call MPI_Alltoallv(zcbuf1, hzi%sendcnts1, hzi%sdispls1, REAL_MPI, &
-                            zfbuf1, hzi%recvcnts1, hzi%rdispls1, REAL_MPI, MPI_MEMBER_WORLD, ierr)
-#endif
+                            zfbuf1, hzi%recvcnts1, hzi%rdispls1, REAL_MPI, __MPICOMM__, ierr)
 #else
 #ifndef SINGLE_A2A
          call A2A3D_execute(hzi%snp0, zcbuf0, hzi%rnp0, zfbuf0, hzi%handler0)
@@ -3597,11 +3441,7 @@ contains
             scnt = scnt + 1
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgather(scnt, 1, MPI_INTEGER, scnts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgather(scnt, 1, MPI_INTEGER, scnts, 1, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgather(scnt, 1, MPI_INTEGER, scnts, 1, MPI_INTEGER, __MPICOMM__, ierr)
 
       ! Count recv elements.
       rcnt = 0
@@ -3612,11 +3452,7 @@ contains
             rcnt = rcnt + 1
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgather(rcnt, 1, MPI_INTEGER, rcnts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgather(rcnt, 1, MPI_INTEGER, rcnts, 1, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgather(rcnt, 1, MPI_INTEGER, rcnts, 1, MPI_INTEGER, __MPICOMM__, ierr)
 
       total_scnt = 0
       total_rcnt = 0
@@ -3643,11 +3479,7 @@ contains
             table(cnt) = k
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgatherv(table, rcnt, MPI_INTEGER, table_all, rcnts, displs, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgatherv(table, rcnt, MPI_INTEGER, table_all, rcnts, displs, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgatherv(table, rcnt, MPI_INTEGER, table_all, rcnts, displs, MPI_INTEGER, __MPICOMM__, ierr)
       
       snp0 = 0
       do p = 0, nprocs-1
@@ -3711,11 +3543,7 @@ contains
             table(cnt) = k
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgatherv(table, scnt, MPI_INTEGER, table_all, scnts, displs, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgatherv(table, scnt, MPI_INTEGER, table_all, scnts, displs, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgatherv(table, scnt, MPI_INTEGER, table_all, scnts, displs, MPI_INTEGER, __MPICOMM__, ierr)
       
       rnp0 = 0
       do p = 0, nprocs-1
@@ -3829,11 +3657,7 @@ contains
             scnt = scnt + 1
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgather(scnt, 1, MPI_INTEGER, scnts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgather(scnt, 1, MPI_INTEGER, scnts, 1, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgather(scnt, 1, MPI_INTEGER, scnts, 1, MPI_INTEGER, __MPICOMM__, ierr)
 
       ! Count recv elements.
       rcnt = 0
@@ -3847,11 +3671,7 @@ contains
             rcnt = rcnt + 1
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgather(rcnt, 1, MPI_INTEGER, rcnts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgather(rcnt, 1, MPI_INTEGER, rcnts, 1, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgather(rcnt, 1, MPI_INTEGER, rcnts, 1, MPI_INTEGER, __MPICOMM__, ierr)
 
       total_scnt = 0
       total_rcnt = 0
@@ -3881,11 +3701,7 @@ contains
             table(cnt) = k
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgatherv(table, rcnt, MPI_INTEGER, table_all, rcnts, displs, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgatherv(table, rcnt, MPI_INTEGER, table_all, rcnts, displs, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgatherv(table, rcnt, MPI_INTEGER, table_all, rcnts, displs, MPI_INTEGER, __MPICOMM__, ierr)
       
       snp0 = 0
       do p = 0, nprocs-1
@@ -3952,11 +3768,7 @@ contains
             table(cnt) = k
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgatherv(table, scnt, MPI_INTEGER, table_all, scnts, displs, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgatherv(table, scnt, MPI_INTEGER, table_all, scnts, displs, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgatherv(table, scnt, MPI_INTEGER, table_all, scnts, displs, MPI_INTEGER, __MPICOMM__, ierr)
       
       rnp0 = 0
       do p = 0, nprocs-1
@@ -4033,11 +3845,7 @@ contains
             scnt = scnt + 1
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgather(scnt, 1, MPI_INTEGER, scnts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgather(scnt, 1, MPI_INTEGER, scnts, 1, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgather(scnt, 1, MPI_INTEGER, scnts, 1, MPI_INTEGER, __MPICOMM__, ierr)
 
       ! Count recv elements.
       rcnt = 0
@@ -4051,11 +3859,7 @@ contains
             rcnt = rcnt + 1
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgather(rcnt, 1, MPI_INTEGER, rcnts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgather(rcnt, 1, MPI_INTEGER, rcnts, 1, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgather(rcnt, 1, MPI_INTEGER, rcnts, 1, MPI_INTEGER, __MPICOMM__, ierr)
 
       total_scnt = 0
       total_rcnt = 0
@@ -4085,11 +3889,7 @@ contains
             table(cnt) = k
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgatherv(table, rcnt, MPI_INTEGER, table_all, rcnts, displs, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgatherv(table, rcnt, MPI_INTEGER, table_all, rcnts, displs, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgatherv(table, rcnt, MPI_INTEGER, table_all, rcnts, displs, MPI_INTEGER, __MPICOMM__, ierr)
       
       snp1 = 0
       do p = 0, nprocs-1
@@ -4156,11 +3956,7 @@ contains
             table(cnt) = k
          end if
       end do
-#ifndef MULTI
-      call MPI_Allgatherv(table, scnt, MPI_INTEGER, table_all, scnts, displs, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allgatherv(table, scnt, MPI_INTEGER, table_all, scnts, displs, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allgatherv(table, scnt, MPI_INTEGER, table_all, scnts, displs, MPI_INTEGER, __MPICOMM__, ierr)
       
       rnp1 = 0
       do p = 0, nprocs-1
@@ -4521,11 +4317,7 @@ contains
       !*  allreduce   *
       !*==============*
 !$omp single
-#ifndef MULTI
-      call MPI_Allreduce(zcbuf, zfbuf, dzi%np, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(zcbuf, zfbuf, dzi%np, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(zcbuf, zfbuf, dzi%np, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
       if(ierr /= 0) then
          select case (ierr)
             case(MPI_ERR_BUFFER)

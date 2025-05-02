@@ -1,6 +1,3 @@
-#ifdef __SX__
-#define NO_SYSTEM_CLOCK
-#endif
 module mod_timer
 implicit none
 integer, private, parameter :: num_max_routines = 100 ! Number of max routines.

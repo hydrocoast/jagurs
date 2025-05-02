@@ -21,6 +21,8 @@ integer(kind=4), parameter :: HGT = 2
 integer(kind=4), parameter :: DXY = 3
 integer(kind=4), parameter :: DPT = 4
 #endif
+integer(kind=4), parameter :: IFX = 5
+integer(kind=4), parameter :: IFY = 6
 
 !*** check undefined values ***
 #if !defined(PIXELIN) && defined(NONESTDEBUG)
@@ -159,7 +161,9 @@ character(len=256) :: m_pyfile = 'PREM_Ggz.nc'
 ! ==============================================================================
 ! === Density ==================================================================
 integer(kind=4) :: with_density = 0
+#endif
 real(kind=8) :: m_rho = 1025.5d0
+#ifndef CARTESIAN
 real(kind=8) :: m_K = 2.2d9
 ! ==============================================================================
 #endif
@@ -180,6 +184,7 @@ integer(kind=4) :: nest_1way = 0
 ! ==============================================================================
 ! === Initial displacement of child domains is given by interpolation. =========
 integer(kind=4) :: init_disp_interpolation = 0
+integer(kind=4) :: init_val_interpolation = 0
 integer(kind=4) :: use_linear = 0
 ! ==============================================================================
 ! === Specify lower limit of depth to adopt horizontal displacement effect. ====
@@ -198,9 +203,7 @@ real(kind=REAL_BYTE) :: broken_rate = -1.0d0
 #ifdef NORMALMODE
 integer(kind=4) :: dumpp = 0
 #endif
-#ifdef NFSUPPORT
 integer(kind=4), parameter :: id_cf17 = 17
-#endif
 
 contains
 
@@ -280,7 +283,7 @@ contains
 !        nest_1way
 ! === Specify lower limit of depth to adopt horizontal displacement effect. ====
 !        nest_1way, init_disp_interpolation, use_linear
-         nest_1way, init_disp_interpolation, use_linear, &
+         nest_1way, init_disp_interpolation, init_val_interpolation, use_linear, &
 #ifndef BANKFILE
 ! === Arrival time =============================================================
 !        min_depth_hde
@@ -326,7 +329,7 @@ contains
 !        nest_1way
 ! === Specify lower limit of depth to adopt horizontal displacement effect. ====
 !        nest_1way, init_disp_interpolation, use_linear
-         nest_1way, init_disp_interpolation, use_linear, &
+         nest_1way, init_disp_interpolation, init_val_interpolation, use_linear, &
 #ifndef BANKFILE
 ! === Arrival time =============================================================
 !        min_depth_hde
@@ -723,16 +726,16 @@ contains
          pname = ''
          pname = trim(dg(i)%parent%base_name)
          disp = 1
-         if(trim(dg(i)%my%disp_file) == 'NO_DISPLACEMENT_FILE_GIVEN') disp = 0
+         if(trim(dg(i)%my%disp_file(1:15)) == 'NO_DISPLACEMENT') disp = 0
          wod = 1
-         if(trim(dg(i)%wod_file) == 'NO_WETORDRY_FILE_GIVEN') wod = 0
+         if(trim(dg(i)%wod_file(1:11)) == 'NO_WETORDRY') wod = 0
          bcf = 1
-         if(trim(dg(i)%bcf_file) == 'NO_FRICTION_FILE_GIVEN') bcf = 0
+         if(trim(dg(i)%bcf_file(1:11)) == 'NO_FRICTION') bcf = 0
 #ifndef BANKFILE
          write(6,'(a,i3,a,a,a,a,i6,i11,2i9)') '   ', i, ' ', myname, ' ', pname, dg(i)%my%linear_flag, disp, wod, bcf
 #else
          bkf = 1
-         if(trim(dg(i)%bank_file) == 'NO_BANK_FILE_GIVEN') bkf = 0
+         if(trim(dg(i)%bank_file(1:7)) == 'NO_BANK') bkf = 0
          write(6,'(a,i3,a,a,a,a,i6,i11,2i9,i10)') '   ', i, ' ', myname, ' ', pname, dg(i)%my%linear_flag, disp, wod, bcf, bkf
 #endif
       end do

@@ -14,6 +14,9 @@ use mod_params, only : m_radius, m_pyfile
 use mod_multi, only : MPI_MEMBER_WORLD
 #endif
 #endif
+#ifdef NORMALMODE
+use mod_params, only : m_rho
+#endif
 implicit none
 integer(kind=4), private :: Nrec
 real(kind=8), private, allocatable, dimension(:) :: Dist, Val
@@ -45,19 +48,11 @@ contains
 
       color = ranky
       key = rankx
-#ifndef MULTI
-      call MPI_comm_split(MPI_COMM_WORLD, color, key, MPI_X_WORLD, ierr)
-#else
-      call MPI_comm_split(MPI_MEMBER_WORLD, color, key, MPI_X_WORLD, ierr)
-#endif
+      call MPI_comm_split(__MPICOMM__, color, key, MPI_X_WORLD, ierr)
 
       color = rankx
       key = ranky
-#ifndef MULTI
-      call MPI_comm_split(MPI_COMM_WORLD, color, key, MPI_Y_WORLD, ierr)
-#else
-      call MPI_comm_split(MPI_MEMBER_WORLD, color, key, MPI_Y_WORLD, ierr)
-#endif
+      call MPI_comm_split(__MPICOMM__, color, key, MPI_Y_WORLD, ierr)
 
       return
    end subroutine loading_mpi_initialize
@@ -151,12 +146,10 @@ contains
    end subroutine loading_getval
 
    subroutine loading_initialize(dg)
-#ifndef __SX__
 #ifndef __NEC__
       include 'fftw3.f'
 #else
       include 'aslfftw3.f'
-#endif
 #endif
       type(data_grids), target, intent(inout) :: dg 
       
@@ -167,28 +160,15 @@ contains
 
       ! Local vals.
       integer(kind=4) :: m_nxg, m_nyg, N, ix, iy, num, iradius
-#ifndef __SX__
       integer(kind=8), allocatable, dimension(:) :: xgreen_planZ, ygreen_planZ ! FFTW3 plan
-#else
-      integer(kind=4), allocatable, dimension(:,:) :: ifax
-      real(kind=8), allocatable, dimension(:,:) :: trigs
-      complex(kind=8), allocatable, dimension(:,:) :: work
-#endif
       real(kind=8) :: m_dx_d, m_dy_d, m_dx, m_dy, &
          xval, yval, xvalm, yvalm, res, sum, Delta, Delta_t, r, &
          xval_t, yval_t, val_, maxi
 
       ! Pointers to type loading in each domain.
       integer(kind=4), pointer :: N_X, N_Y
-#ifndef __SX__
       integer(kind=8), pointer, dimension(:) :: &
          xplan_forward, yplan_forward, xplan_backward, yplan_backward ! FFTW3 plan
-#else
-      integer(kind=4), pointer, dimension(:,:) :: ifax_x, ifax_y
-      real(kind=8), pointer, dimension(:,:) :: trigs_x, trigs_y
-      real(kind=8), pointer, dimension(:,:) :: work_x
-      complex(kind=8), pointer, dimension(:,:) :: work_y
-#endif
       complex(kind=8), pointer, dimension(:,:) :: green_out_Z
       complex(kind=8), pointer, dimension(:,:) :: xfftbuf, yfftbuf
       real(kind=8), pointer, dimension(:,:) :: realbuf
@@ -214,11 +194,6 @@ contains
       integer(kind=4), pointer, dimension(:) :: jts1, jte1, jtn1     ! N_Y, ny1
       integer(kind=4) :: it, nthreads
 ! ==============================================================================
-#ifdef __SX__
-#ifndef MPI
-      integer(kind=4) :: ierr
-#endif
-#endif
 #ifndef MPI
       m_nxg = dg%my%nx
       m_nyg = dg%my%ny
@@ -348,13 +323,8 @@ contains
          if(p < mod(N_X/2+1,nprocs)) i = i + 1
          sendcounts2(p) = i*ny1
       end do
-#ifndef MULTI
       call MPI_Alltoall(sendcounts2, 1, MPI_INTEGER, &
-                        recvcounts2, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Alltoall(sendcounts2, 1, MPI_INTEGER, &
-                        recvcounts2, 1, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+                        recvcounts2, 1, MPI_INTEGER, __MPICOMM__, ierr)
       sdispls2(0) = 0
       rdispls2(0) = 0
       do p = 1, nprocs-1
@@ -386,13 +356,8 @@ contains
          if(p < mod(N_X/2+1,nprocs)) i = i + 1
          sendcountsg(p) = i*nyg
       end do
-#ifndef MULTI
       call MPI_Alltoall(sendcountsg, 1, MPI_INTEGER, &
-                        recvcountsg, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Alltoall(sendcountsg, 1, MPI_INTEGER, &
-                        recvcountsg, 1, MPI_INTEGER, MPI_MEMBER_WORLD, ierr)
-#endif
+                        recvcountsg, 1, MPI_INTEGER, __MPICOMM__, ierr)
       sdisplsg(0) = 0
       rdisplsg(0) = 0
       do p = 1, nprocs-1
@@ -416,24 +381,10 @@ contains
       allocate(jteg(0:nthreads-1))
       allocate(jtng(0:nthreads-1))
 
-#ifndef __SX__
       allocate(dg%loading%xplan_forward(0:nthreads-1))
       allocate(dg%loading%yplan_forward(0:nthreads-1))
       allocate(dg%loading%xplan_backward(0:nthreads-1))
       allocate(dg%loading%yplan_backward(0:nthreads-1))
-#else
-      allocate(dg%loading%ifax_x(20,0:nthreads-1))
-      allocate(dg%loading%ifax_y(20,0:nthreads-1))
-      allocate(dg%loading%trigs_x(N_X*2,0:nthreads-1))
-      allocate(dg%loading%trigs_y(N_Y*2,0:nthreads-1))
-#ifndef MPI
-      allocate(dg%loading%work_x(N_X+2,N_Y))
-      allocate(dg%loading%work_y(N_Y,N_X/2+1))
-#else
-      allocate(dg%loading%work_x(N_X+2,ny1))
-      allocate(dg%loading%work_y(N_Y,nx2))
-#endif
-#endif
       allocate(dg%loading%its2(0:nthreads-1))
       allocate(dg%loading%ite2(0:nthreads-1))
       allocate(dg%loading%itn2(0:nthreads-1))
@@ -441,19 +392,10 @@ contains
       allocate(dg%loading%jte1(0:nthreads-1))
       allocate(dg%loading%jtn1(0:nthreads-1))
 
-#ifndef __SX__
       xplan_forward  => dg%loading%xplan_forward
       yplan_forward  => dg%loading%yplan_forward
       xplan_backward => dg%loading%xplan_backward
       yplan_backward => dg%loading%yplan_backward
-#else
-      ifax_x => dg%loading%ifax_x
-      ifax_y => dg%loading%ifax_y
-      trigs_x => dg%loading%trigs_x
-      trigs_y => dg%loading%trigs_y
-      work_x => dg%loading%work_x
-      work_y => dg%loading%work_y
-#endif
       its2 => dg%loading%its2
       ite2 => dg%loading%ite2
       itn2 => dg%loading%itn2
@@ -496,18 +438,10 @@ contains
 
 #ifndef MPI
       allocate(greenZZ(N_X,N_Y))
-#ifndef __SX__
       allocate(greenZdouble(N_X,N_Y))
 #else
-      allocate(greenZdouble(N_X+2,N_Y))
-#endif
-#else
       allocate(greenZZ(N_X,nyg))
-#ifndef __SX__
       allocate(greenZdouble(N_X,nyg))
-#else
-      allocate(greenZdouble(N_X+2,nyg))
-#endif
 
       yst = N_Y/nprocs
       yst = yst*myrank + min(myrank, mod(N_Y,nprocs)) + 1
@@ -609,11 +543,7 @@ contains
       end do
 !$omp single
 #ifdef MPI
-#ifndef MULTI
-      call MPI_Allreduce(MPI_IN_PLACE, maxi, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(MPI_IN_PLACE, maxi, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(MPI_IN_PLACE, maxi, 1, MPI_DOUBLE_PRECISION, MPI_MAX, __MPICOMM__, ierr)
 #endif
 
       write(6,'(a,e15.6,a,e15.6,a,e15.6,a)') '[loading] MAX GREEN ', maxi, ' (', m_dx, ', ', m_dy, ')'
@@ -662,7 +592,6 @@ contains
       green_out_Z => dg%loading%green_out_Z
 !$omp end single
 
-#ifndef __SX__
 !$omp single
       allocate(xgreen_planZ(0:nthreads-1))
       allocate(ygreen_planZ(0:nthreads-1))
@@ -682,36 +611,13 @@ contains
                                   FFTW_FORWARD, FFTW_ESTIMATE)
       end do
 !$omp end single
-#else
-!$omp single
-      allocate(ifax(20,0:nthreads-1))
-      allocate(trigs(N_X,0:nthreads-1))
-#ifndef MPI
-      allocate(work(N_X/2+1,N_Y))
-#else
-      allocate(work(N_X/2+1,nyg))
-#endif
-!$omp end single
-#endif
 
       ! Forward FFT on X-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          if(jtng(it) /= 0) &
          call dfftw_execute_dft_r2c(xgreen_planZ(it),greenZdouble(1,jtsg(it)),green_in_Z(1,jtsg(it)))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call DFRMFB(N_X,jtng(it),greenZdouble(1,jtsg(it)),1,N_X+2,1,ifax(1,it),trigs(1,it),work(1,jtsg(it)),ierr)
-      end do
-!$omp single
-      deallocate(ifax)
-      deallocate(trigs)
-      deallocate(work)
-!$omp end single
-#endif
 
 #ifndef MPI
       ! Transposiion: (N_X,N_Y) -> (N_Y,N_X)
@@ -719,11 +625,7 @@ contains
       do it = 0, nthreads-1
          do i = its2(it), ite2(it)
             do j = 1, N_Y
-#ifndef __SX__
                green_out_Z(j,i) = green_in_Z(i,j)
-#else
-               green_out_Z(j,i) = dcmplx(greenZdouble(2*i-1,j),greenZdouble(2*i,j))
-#endif
             end do
          end do
       end do
@@ -734,20 +636,11 @@ contains
       do i = 1, N_X/2+1
          do j = 1, nyg
             ind = ind + 1
-#ifndef __SX__
             sendbufg(ind) = green_in_Z(i,j)
-#else
-            sendbufg(ind) = dcmplx(greenZdouble(2*i-1,j),greenZdouble(2*i,j))
-#endif
          end do
       end do
-#ifndef MULTI
       call MPI_Alltoallv(sendbufg, sendcountsg, sdisplsg, MPI_DOUBLE_COMPLEX, &
-                         recvbufg, recvcountsg, rdisplsg, MPI_DOUBLE_COMPLEX, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Alltoallv(sendbufg, sendcountsg, sdisplsg, MPI_DOUBLE_COMPLEX, &
-                         recvbufg, recvcountsg, rdisplsg, MPI_DOUBLE_COMPLEX, MPI_MEMBER_WORLD, ierr)
-#endif
+                         recvbufg, recvcountsg, rdisplsg, MPI_DOUBLE_COMPLEX, __MPICOMM__, ierr)
       yst = 0
       do p = 0, nprocs-1
          ylen = recvcountsg(p)/nx2
@@ -764,29 +657,12 @@ contains
 #endif
 
       ! Forward FFT on Y-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          if(itn2(it) /= 0) &
          call dfftw_execute(ygreen_planZ(it))
       end do
-#else
-!$omp single
-      allocate(ifax(20,0:nthreads-1))
-      allocate(trigs(2*N_Y,0:nthreads-1))
-#ifndef MPI
-      allocate(work(N_Y,N_X))
-#else
-      allocate(work(N_Y,nx2))
-#endif
-!$omp end single
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call ZFCMFB(N_Y,itn2(it),green_out_Z(1,its2(it)),1,N_Y,1,ifax(1,it),trigs(1,it),work(1,its2(it)),ierr)
-      end do
-#endif
 
-#ifndef __SX__
 !$omp single
       do it = 0, nthreads-1
          if(jtng(it) /= 0) &
@@ -794,20 +670,12 @@ contains
          if(itn2(it) /= 0) &
          call dfftw_destroy_plan(ygreen_planZ(it))
       end do
-#else
-!$omp single
-      deallocate(ifax)
-      deallocate(trigs)
-      deallocate(work)
-#endif
 
       deallocate(jtsg)
       deallocate(jteg)
       deallocate(jtng)
-#ifndef __SX__
       deallocate(xgreen_planZ)
       deallocate(ygreen_planZ)
-#endif
 
 #ifdef MPI
       deallocate(sendbufg)
@@ -819,7 +687,6 @@ contains
       deallocate(rdisplsg)
 #endif
 
-#ifndef __SX__
 #ifndef MPI
       allocate(dg%loading%realbuf(N_X,N_Y))
       allocate(dg%loading%xfftbuf(N_X/2+1,N_Y))
@@ -828,17 +695,6 @@ contains
       allocate(dg%loading%realbuf(N_X,ny1))
       allocate(dg%loading%xfftbuf(N_X/2+1,ny1))
       allocate(dg%loading%yfftbuf(N_Y,nx2))
-#endif
-#else
-#ifndef MPI
-      allocate(dg%loading%realbuf(N_X+2,N_Y))
-      allocate(dg%loading%xfftbuf(N_X/2+1,N_Y))
-      allocate(dg%loading%yfftbuf(N_Y+1,N_X/2+1))
-#else
-      allocate(dg%loading%realbuf(N_X+16,ny1))
-      allocate(dg%loading%xfftbuf(N_X/2+1,ny1))
-      allocate(dg%loading%yfftbuf(N_Y+16,nx2))
-#endif
 #endif
       realbuf => dg%loading%realbuf
       xfftbuf => dg%loading%xfftbuf
@@ -868,7 +724,6 @@ contains
 !$omp single
       ! dfftw_plan* is NOT thread-safe!
       do it = 0, nthreads-1
-#ifndef __SX__
          if(jtn1(it) /= 0) &
          call dfftw_plan_many_dft_r2c(xplan_forward(it), 1, N_X, jtn1(it), &
                                       realbuf(1,jts1(it)), 0, 1, N_X,      &
@@ -892,10 +747,6 @@ contains
                                   yfftbuf(1,its2(it)), 0, 1, N_Y,       &
                                   yfftbuf(1,its2(it)), 0, 1, N_Y,       &
                                   FFTW_BACKWARD, FFTW_MEASURE)
-#else
-         call DFRMFB(N_X,jtn1(it),realbuf(1,jts1(it)),1,N_X+16,0,ifax_x(1,it),trigs_x(1,it),work_x(1,jts1(it)),ierr)
-         call ZFCMFB(N_Y,itn2(it),yfftbuf(1,its2(it)),1,N_Y+16,0,ifax_y(1,it),trigs_y(1,it),work_y(1,its2(it)),ierr)
-#endif
       end do
 
       deallocate(greenZZ)
@@ -933,22 +784,18 @@ contains
    end subroutine loading_initialize
 
    subroutine loading_finalize(dg)
-#ifndef __SX__
 #ifndef __NEC__
       include 'fftw3.f'
 #else
       include 'aslfftw3.f'
 #endif
-#endif
       type(data_grids), target, intent(inout) :: dg 
 ! === OpenMP ===================================================================
       integer(kind=4) :: it, nthreads
 ! ==============================================================================
-#ifndef __SX__
       integer(kind=4), pointer, dimension(:) :: itn2, jtn1
       itn2 => dg%loading%itn2
       jtn1 => dg%loading%jtn1
-#endif
 #ifdef _OPENMP
       nthreads = omp_get_max_threads()
 #else
@@ -958,7 +805,6 @@ contains
       if(allocated(Val)) deallocate(Val)
       deallocate(dg%loading%green_out_Z)
 
-#ifndef __SX__
       do it = 0, nthreads-1
          if(jtn1(it) /= 0) &
          call dfftw_destroy_plan(dg%loading%xplan_forward(it))
@@ -974,14 +820,6 @@ contains
       deallocate(dg%loading%yplan_forward)
       deallocate(dg%loading%xplan_backward)
       deallocate(dg%loading%yplan_backward)
-#else
-      deallocate(dg%loading%ifax_x)
-      deallocate(dg%loading%ifax_y)
-      deallocate(dg%loading%trigs_x)
-      deallocate(dg%loading%trigs_y)
-      deallocate(dg%loading%work_x)
-      deallocate(dg%loading%work_y)
-#endif
 
       deallocate(dg%loading%its2)
       deallocate(dg%loading%ite2)
@@ -1021,12 +859,10 @@ contains
    end subroutine loading_finalize
 
    subroutine loading_run(dg)
-#ifndef __SX__
 #ifndef __NEC__
       include 'fftw3.f'
 #else
       include 'aslfftw3.f'
-#endif
 #endif
       type(data_grids), target, intent(inout) :: dg 
 
@@ -1043,15 +879,8 @@ contains
 
       ! Pointers to type loading in each domain.
       integer(kind=4), pointer :: N_X, N_Y
-#ifndef __SX__
       integer(kind=8), pointer, dimension(:) :: &
          xplan_forward, yplan_forward, xplan_backward, yplan_backward ! FFTW3 plan
-#else
-      integer(kind=4), pointer, dimension(:,:) :: ifax_x, ifax_y
-      real(kind=8), pointer, dimension(:,:) :: trigs_x, trigs_y
-      real(kind=8), pointer, dimension(:,:) :: work_x
-      complex(kind=8), pointer, dimension(:,:) :: work_y
-#endif
       complex(kind=8), pointer, dimension(:,:) :: green_out_Z
       complex(kind=8), pointer, dimension(:,:) :: xfftbuf, yfftbuf
       real(kind=8), pointer, dimension(:,:) :: realbuf
@@ -1068,16 +897,15 @@ contains
 
       integer(kind=4) :: i_, j_, p, ind, xst, xlen, yst, ylen, ierr
 #endif
-#ifdef __SX__
-#ifndef MPI
-      integer(kind=4) :: ierr
-#endif
-#endif
 ! === OpenMP ===================================================================
       integer(kind=4), pointer, dimension(:) :: its2, ite2, itn2 ! N_X, nx2
       integer(kind=4), pointer, dimension(:) :: jts1, jte1, jtn1 ! N_Y, ny1
       integer(kind=4) :: it, nthreads
 ! ==============================================================================
+#ifdef NORMALMODE
+      real(kind=REAL_BYTE), pointer, dimension(:,:) :: nm_P
+      real(kind=REAL_BYTE), parameter :: g = 9.8d0
+#endif
 
 #ifndef MPI
       nlon => dg%my%nx
@@ -1120,19 +948,10 @@ contains
       hz => dg%wave_field%hz
       ifz => dg%wod_flags
 
-#ifndef __SX__
       xplan_forward  => dg%loading%xplan_forward
       yplan_forward  => dg%loading%yplan_forward
       xplan_backward => dg%loading%xplan_backward
       yplan_backward => dg%loading%yplan_backward
-#else
-      ifax_x => dg%loading%ifax_x
-      ifax_y => dg%loading%ifax_y
-      trigs_x => dg%loading%trigs_x
-      trigs_y => dg%loading%trigs_y
-      work_x => dg%loading%work_x
-      work_y => dg%loading%work_y
-#endif
 ! === OpenMP ===================================================================
       its2 => dg%loading%its2
       ite2 => dg%loading%ite2
@@ -1150,6 +969,9 @@ contains
 ! === Elastic loading with interpolation =======================================
       delta => dg%loading%delta
 ! ==============================================================================
+#ifdef NORMALMODE
+      nm_P => dg%wave_field%nm_P
+#endif
 
 #ifdef _OPENMP
       nthreads = omp_get_max_threads()
@@ -1171,52 +993,38 @@ contains
       do j = 1, nlat
          do i = 1, nlon
             if(ifz(i,j) == 1) then
+#ifndef NORMALMODE
                realbuf(i,j) = hz(i,j)
+#else
+               realbuf(i,j) = hz(i,j) + nm_P(i,j)/g/m_rho
+#endif
             end if
          end do
       end do
 
       ! Forward FFT on X-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          if(jtn1(it) /= 0) &
          call dfftw_execute_dft_r2c(xplan_forward(it),realbuf(1,jts1(it)),xfftbuf(1,jts1(it)))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call DFRMBF(N_X,jtn1(it),realbuf(1,jts1(it)),1,N_X+2,1,ifax_x(1,it),trigs_x(1,it),work_x(1,jts1(it)),ierr)
-      end do
-#endif
 
       ! Transposiion: (N_X,N_Y) -> (N_Y,N_X)
 !$omp do private(i, j)
       do it = 0, nthreads-1
          do i = its2(it), ite2(it)
             do j = 1, N_Y
-#ifndef __SX__
                yfftbuf(j,i) = xfftbuf(i,j)
-#else
-               yfftbuf(j,i) = dcmplx(realbuf(2*i-1,j),realbuf(2*i,j))
-#endif
             end do
          end do
       end do
 
       ! Forward FFT on Y-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          if(itn2(it) /= 0) &
          call dfftw_execute(yplan_forward(it))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call ZFCMBF(N_Y,itn2(it),yfftbuf(1,its2(it)),1,N_Y+1,1,ifax_y(1,it),trigs_y(1,it),work_y(1,its2(it)),ierr)
-      end do
-#endif
 
 !$omp do private(i, j)
       do it = 0, nthreads-1
@@ -1228,47 +1036,28 @@ contains
       end do
 
       ! Backward FFT on Y-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          if(itn2(it) /= 0) &
          call dfftw_execute(yplan_backward(it))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call ZFCMBF(N_Y,itn2(it),yfftbuf(1,its2(it)),1,N_Y+1,-1,ifax_y(1,it),trigs_y(1,it),work_y(1,its2(it)),ierr)
-      end do
-#endif
 
       ! Transposiion: (N_Y,N_X) -> (N_X,N_Y)
 !$omp do private(j, i)
       do it = 0, nthreads-1
          do j = jts1(it), jte1(it)
             do i = 1, N_X/2+1
-#ifndef __SX__
                xfftbuf(i,j) = yfftbuf(j,i)
-#else
-               realbuf(2*i-1,j) = dble (yfftbuf(j,i))
-               realbuf(2*i,  j) = dimag(yfftbuf(j,i))
-#endif
             end do
          end do
       end do
 
       ! Backward FFT on X-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          if(jtn1(it) /= 0) &
          call dfftw_execute_dft_c2r(xplan_backward(it),xfftbuf(1,jts1(it)),realbuf(1,jts1(it)))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call DFRMBF(N_X,jtn1(it),realbuf(1,jts1(it)),1,N_X+2,-1,ifax_x(1,it),trigs_x(1,it),work_x(1,jts1(it)),ierr)
-      end do
-#endif
 
 !$omp do private(i)
       do j = 1, nlat
@@ -1306,7 +1095,11 @@ contains
             i_ = ibias + i
             ind = (j-1)*nx0 + i
             if(ifz(i_,j_) == 1) then
+#ifndef NORMALMODE
                sendbuf1(ind) = hz(i_,j_)
+#else
+               sendbuf1(ind) = hz(i_,j_) + nm_P(i,j)/g/m_rho
+#endif
             end if
          end do
       end do
@@ -1318,11 +1111,7 @@ contains
 
 !$omp do private(i)
       do j = 1, ny1
-#ifndef __SX__
          do i = 1, N_X
-#else
-         do i = 1, N_X+16
-#endif
             realbuf(i,j) = 0.0d0
          end do
       end do
@@ -1341,21 +1130,13 @@ contains
       end do
 
       ! Forward FFT on X-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          if(jtn1(it) /= 0) &
          call dfftw_execute_dft_r2c(xplan_forward(it),realbuf(1,jts1(it)),xfftbuf(1,jts1(it)))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call DFRMBF(N_X,jtn1(it),realbuf(1,jts1(it)),1,N_X+16,1,ifax_x(1,it),trigs_x(1,it),work_x(1,jts1(it)),ierr)
-      end do
-#endif
 
       ! Transposiion: (N_X,ny1) -> (N_Y,nx2)
-#ifndef __SX__
 !$omp do private(j, ind)
       do i = 1, N_X/2+1
          do j = 1, ny1
@@ -1363,33 +1144,15 @@ contains
             sendbuf2(ind) = xfftbuf(i,j)
          end do
       end do
-#else
-!$omp do private(i, ind)
-      do j = 1, ny1
-         do i = 1, N_X/2+1
-            ind = ny1*(i-1) + j
-            sendbuf2(ind) = dcmplx(realbuf(2*i-1,j),realbuf(2*i,j))
-         end do
-      end do
-#endif
 
 !$omp single
-#ifndef MULTI
       call MPI_Alltoallv(sendbuf2, sendcounts2, sdispls2, MPI_DOUBLE_COMPLEX, &
-                         recvbuf2, recvcounts2, rdispls2, MPI_DOUBLE_COMPLEX, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Alltoallv(sendbuf2, sendcounts2, sdispls2, MPI_DOUBLE_COMPLEX, &
-                         recvbuf2, recvcounts2, rdispls2, MPI_DOUBLE_COMPLEX, MPI_MEMBER_WORLD, ierr)
-#endif
+                         recvbuf2, recvcounts2, rdispls2, MPI_DOUBLE_COMPLEX, __MPICOMM__, ierr)
 !$omp end single
 
 !$omp do private(j)
       do i = 1, nx2
-#ifndef __SX__
          do j = 1, N_Y
-#else
-         do j = 1, N_Y+16
-#endif
             yfftbuf(j,i) = dcmplx(0.0d0,0.0d0)
          end do
       end do
@@ -1408,18 +1171,11 @@ contains
       end do
 
       ! Forward FFT on Y-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          if(itn2(it) /= 0) &
          call dfftw_execute(yplan_forward(it))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call ZFCMBF(N_Y,itn2(it),yfftbuf(1,its2(it)),1,N_Y+16,1,ifax_y(1,it),trigs_y(1,it),work_y(1,its2(it)),ierr)
-      end do
-#endif
 
       ! Calc. F(hz)*F(g)
 !$omp do private(i, j)
@@ -1432,18 +1188,11 @@ contains
       end do
 
       ! Backward FFT on Y-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          if(itn2(it) /= 0) &
          call dfftw_execute(yplan_backward(it))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call ZFCMBF(N_Y,itn2(it),yfftbuf(1,its2(it)),1,N_Y+16,-1,ifax_y(1,it),trigs_y(1,it),work_y(1,its2(it)),ierr)
-      end do
-#endif
 
       ! Transposiion: (N_Y,nx2) -> (N_X,ny1)
 !$omp do private(yst, ylen, i, j, ind, j_)
@@ -1460,16 +1209,10 @@ contains
       end do
 
 !$omp single
-#ifndef MULTI
       call MPI_Alltoallv(recvbuf2, recvcounts2, rdispls2, MPI_DOUBLE_COMPLEX, &
-                         sendbuf2, sendcounts2, sdispls2, MPI_DOUBLE_COMPLEX, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Alltoallv(recvbuf2, recvcounts2, rdispls2, MPI_DOUBLE_COMPLEX, &
-                         sendbuf2, sendcounts2, sdispls2, MPI_DOUBLE_COMPLEX, MPI_MEMBER_WORLD, ierr)
-#endif
+                         sendbuf2, sendcounts2, sdispls2, MPI_DOUBLE_COMPLEX, __MPICOMM__, ierr)
 !$omp end single
 
-#ifndef __SX__
 !$omp do private(i, ind)
       do j = 1, ny1
          do i = 1, N_X/2+1
@@ -1477,30 +1220,13 @@ contains
             xfftbuf(i,j) = sendbuf2(ind)
          end do
       end do
-#else
-!$omp do private(i, ind)
-      do j = 1, ny1
-         do i = 1, N_X/2+1
-            ind = ny1*(i-1) + j
-            realbuf(2*i-1,j) = dble (sendbuf2(ind))
-            realbuf(2*i,  j) = dimag(sendbuf2(ind))
-         end do
-      end do
-#endif
 
       ! Backward FFT on X-direction
-#ifndef __SX__
 !$omp do
       do it = 0, nthreads-1
          if(jtn1(it) /= 0) &
          call dfftw_execute_dft_c2r(xplan_backward(it),xfftbuf(1,jts1(it)),realbuf(1,jts1(it)))
       end do
-#else
-!$omp do private(ierr)
-      do it = 0, nthreads-1
-         call DFRMBF(N_X,jtn1(it),realbuf(1,jts1(it)),1,N_X+16,-1,ifax_x(1,it),trigs_x(1,it),work_x(1,jts1(it)),ierr)
-      end do
-#endif
 
       ! Transposiion: (N_X,ny1) -> (nx0,ny0)
 !$omp do private(xst, xlen, j, i, ind, i_)

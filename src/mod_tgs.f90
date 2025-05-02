@@ -8,7 +8,6 @@ implicit none
 
 contains
 
-#ifndef __SX__
    subroutine tgs_open_ct(dg,ngrid,dt,nstep,nsta,program_name,tg_station_file_name,mytgs)
       type(data_grids), dimension(:), intent(inout) :: dg
       integer(kind=4), intent(in) :: ngrid
@@ -191,7 +190,6 @@ contains
       nsta = 0
       return
    end subroutine tgs_open_ct
-#endif
 
    ! thomas - function to compute row and column position of point with respect to a grid
    !          point can be outside of grid

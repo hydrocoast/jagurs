@@ -628,4 +628,13 @@ If you want the old version to work, specify "-DNONESTDEBUG" on Makefile and mak
 - DEBUG for latest gfortran and serial (non-MPI) mode have been applied.
 
 --------------------------------------------------------------------------------
+2024.XX.XX V0601???
+
+- NEC SX is not available now. Please use NEC SX-Aurora TSUBASA.
+
+--------------------------------------------------------------------------------
+2025.05.02 V0610
+
+- Arbitrary water level & flow quantity distributions (Hot start) is available.
+--------------------------------------------------------------------------------
 

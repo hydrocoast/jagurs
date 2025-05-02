@@ -52,13 +52,8 @@ contains
                                  '                #'
             write(0,'(a)') '###########################################################'
          end if
-#ifndef MULTI
-         call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         call MPI_Abort(MPI_COMM_WORLD,999,ierr)
-#else
-         call MPI_Barrier(MPI_MEMBER_WORLD,ierr)
-         call MPI_Abort(MPI_MEMBER_WORLD,999,ierr)
-#endif
+         call MPI_Barrier(__MPICOMM__,ierr)
+         call MPI_Abort(__MPICOMM__,999,ierr)
          stop
       end if
 
@@ -70,11 +65,7 @@ contains
       key = myrank
 
       do i = 1, 3
-#ifndef MULTI
-         call MPI_comm_split(MPI_COMM_WORLD, color(i), key, MPI_XYZ_GROUP(i), ierr)
-#else
-         call MPI_comm_split(MPI_MEMBER_WORLD, color(i), key, MPI_XYZ_GROUP(i), ierr)
-#endif
+         call MPI_comm_split(__MPICOMM__, color(i), key, MPI_XYZ_GROUP(i), ierr)
          call MPI_comm_size(MPI_XYZ_GROUP(i), nprcs3d_tmp(i), ierr)
          call MPI_comm_rank(MPI_XYZ_GROUP(i), myrank3d(i), ierr)
       end do

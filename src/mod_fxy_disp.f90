@@ -26,53 +26,22 @@ use mod_params, only : froude_lim
 use mod_params, only : broken_rate
 #endif
 #ifdef NORMALMODE
-use mod_normalmode, only : calc_nm_P, rhow
+use mod_normalmode, only : calc_nm_P
+use mod_params, only : m_rho
 #endif
 implicit none
 
 contains
 
-#ifndef MPI
-#ifndef CONV_CHECK
-#ifndef NORMALMODE
-   subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,nlon,nlat,gflag,fg,cg)
-#else
-   subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,nlon,nlat,gflag,fg,cg,istep)
-#endif
-#else
-#ifndef NORMALMODE
-   subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,nlon,nlat,gflag,fg,cg,conv_step)
-#else
-   subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,nlon,nlat,gflag,fg,cg,conv_step,istep)
-#endif
-#endif
-#else
-#ifndef CONV_CHECK
-#ifndef NORMALMODE
-   subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,joff,nlon,nlat,gflag,bflag,fg,cg)
-#else
-   subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,joff,nlon,nlat,gflag,bflag,fg,cg,istep)
-#endif
-#else
-#ifndef NORMALMODE
-   subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,joff,nlon,nlat,gflag,bflag,fg,cg,conv_step)
-#else
    subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,joff,nlon,nlat,gflag,bflag,fg,cg,conv_step,istep)
-#endif
-#endif
-#endif
       type(wave_arrays), target, intent(inout) :: wfld
       type(depth_arrays), target, intent(in) :: dfld
       real(kind=REAL_BYTE), intent(in) :: dt, th0, dth
       integer(kind=4), intent(in) :: nlon, nlat
-#ifdef MPI
       integer(kind=4), intent(in) :: joff
-#endif
-#ifdef CONV_CHECK
       integer(kind=4), intent(out) :: conv_step
-#endif
-#ifdef NORMALMODE
       integer(kind=4), intent(in) :: istep
+#ifdef NORMALMODE
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: nm_P, nm_P0, nm_P1
       integer(kind=4), pointer, dimension(:,:) :: nm_ind
 #endif
@@ -84,8 +53,8 @@ contains
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: dx, dy
 ! === Dispersive ===============================================================
       type(data_grids), target, intent(inout) :: fg, cg
-#ifdef MPI
       integer(kind=4), intent(in) :: bflag
+#ifdef MPI
       integer(kind=4) :: ist_, jst_
 #endif
       integer(kind=4), intent(in) :: gflag
@@ -133,7 +102,11 @@ contains
       nm_P   => wfld%nm_P
       nm_P0  => wfld%nm_P0
       nm_P1  => wfld%nm_P1
+#ifndef NM_DEF
       call calc_nm_P(nlon, nlat, nm_ind, nm_P, nm_P0, nm_P1, istep)
+#else
+      call calc_nm_P(nlon, nlat, nm_P)
+#endif
 #ifdef MPI
       call exchange_edges_P(fg)
 #endif
@@ -198,8 +171,8 @@ contains
                fx(i,j) = fx(i,j) - dx(i,j)*cfc*(hz(i+1,j)  -hz(i,j))
                fy(i,j) = fy(i,j) - dy(i,j)*gts*(hz(i,  j+1)-hz(i,j))
 #ifdef NORMALMODE
-               fx(i,j) = fx(i,j) - dx(i,j)*cfc/g/rhow*(nm_P(i+1,j)  -nm_P(i,j))
-               fy(i,j) = fy(i,j) - dy(i,j)*gts/g/rhow*(nm_P(i,  j+1)-nm_P(i,j))
+               fx(i,j) = fx(i,j) - dx(i,j)*cfc/g/m_rho*(nm_P(i+1,j)  -nm_P(i,j))
+               fy(i,j) = fy(i,j) - dy(i,j)*gts/g/m_rho*(nm_P(i,  j+1)-nm_P(i,j))
 #endif
             else
                fx(i,j) = zap
@@ -451,11 +424,7 @@ contains
          end do
 #ifdef MPI
 !$omp single
-#ifndef MULTI
-         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, MPI_COMM_WORLD, ierr)
-#else
-         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-#endif
+         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, __MPICOMM__, ierr)
 !$omp end single
 #endif
          if(diffxy < conv_val) then
@@ -506,43 +475,8 @@ contains
       return
    end subroutine fxy_rwg_disp
 
-#ifndef MPI
-#ifndef CONV_CHECK
-#ifndef NORMALMODE
-   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,cflag,dt,th0,dth,nlon,nlat, &
-                             gflag,smallh,fg,cg)
-#else
-   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,cflag,dt,th0,dth,nlon,nlat, &
-                             gflag,smallh,fg,cg,istep)
-#endif
-#else
-#ifndef NORMALMODE
-   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,cflag,dt,th0,dth,nlon,nlat, &
-                             gflag,smallh,fg,cg,conv_step)
-#else
-   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,cflag,dt,th0,dth,nlon,nlat, &
-                             gflag,smallh,fg,cg,conv_step,istep)
-#endif
-#endif
-#else
-#ifndef CONV_CHECK
-#ifndef NORMALMODE
-   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,cflag,dt,th0,dth,joff,nlon,nlat, &
-                             gflag,smallh,bflag,fg,cg)
-#else
-   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,cflag,dt,th0,dth,joff,nlon,nlat, &
-                             gflag,smallh,bflag,fg,cg,istep)
-#endif
-#else
-#ifndef NORMALMODE
-   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,cflag,dt,th0,dth,joff,nlon,nlat, &
-                             gflag,smallh,bflag,fg,cg,conv_step)
-#else
    subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,cflag,dt,th0,dth,joff,nlon,nlat, &
                              gflag,smallh,bflag,fg,cg,conv_step,istep)
-#endif
-#endif
-#endif
       type(wave_arrays), target, intent(inout) :: wfld
       type(depth_arrays), target, intent(inout) :: dfld
       real(kind=REAL_BYTE), target, dimension(nlon,nlat), intent(in) :: ffld
@@ -559,12 +493,8 @@ contains
       real(kind=REAL_BYTE), intent(in) :: dt, th0, dth
       integer(kind=4), intent(in) :: nlon, nlat, gflag
       real(kind=REAL_BYTE), intent(in) :: smallh
-#ifdef MPI
       integer(kind=4), intent(in) :: joff, bflag
-#endif
-#ifdef CONV_CHECK
       integer(kind=4), intent(out) :: conv_step
-#endif
 
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: fx, fy, hz, ddx, ddy, dz, p
       real(kind=REAL_BYTE) :: dtds, gdtds, bcf, theta, sint, invst, gdtdss, crls
@@ -629,8 +559,8 @@ contains
       real(kind=REAL_BYTE) :: zhigh, zlow, discharge, dhigh
       real(kind=REAL_BYTE), parameter :: GX = 1.0d-5, GY = 1.0d-10
 #endif
-#ifdef NORMALMODE
       integer(kind=4), intent(in) :: istep
+#ifdef NORMALMODE
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: nm_P, nm_P0, nm_P1
       integer(kind=4), pointer, dimension(:,:) :: nm_ind
 #endif
@@ -678,7 +608,11 @@ contains
       nm_P   => wfld%nm_P
       nm_P0  => wfld%nm_P0
       nm_P1  => wfld%nm_P1
+#ifndef NM_DEF
       call calc_nm_P(nlon, nlat, nm_ind, nm_P, nm_P0, nm_P1, istep)
+#else
+      call calc_nm_P(nlon, nlat, nm_P)
+#endif
 #ifdef MPI
       call exchange_edges_P(fg)
 #endif
@@ -956,7 +890,7 @@ contains
 #ifndef NORMALMODE
                        - advc - crls*fybar
 #else
-                       - advc - crls*fybar - half*(dz(i+1,j)+dz(i,j))*dtds*invst/rhow*(nm_P(i+1,j)-nm_P(i,j))
+                       - advc - crls*fybar - half*(dz(i+1,j)+dz(i,j))*dtds*invst/m_rho*(nm_P(i+1,j)-nm_P(i,j))
 #endif
             end if
          end do
@@ -1230,7 +1164,7 @@ contains
 #ifndef NORMALMODE
                        - advc + crls*fxbar
 #else
-                       - advc + crls*fxbar - half*(dz(i,j+1)+dz(i,j))*dtds/rhow*(nm_P(i,j+1)-nm_P(i,j))
+                       - advc + crls*fxbar - half*(dz(i,j+1)+dz(i,j))*dtds/m_rho*(nm_P(i,j+1)-nm_P(i,j))
 #endif
             end if
          end do
@@ -1781,11 +1715,7 @@ contains
          end do
 #ifdef MPI
 !$omp single
-#ifndef MULTI
-         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, MPI_COMM_WORLD, ierr)
-#else
-         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-#endif
+         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, __MPICOMM__, ierr)
 !$omp end single
 #endif
          if(diffxy < conv_val) then
@@ -1884,18 +1814,18 @@ contains
                fybar = half*(fy_old(i,1) + fy_old(i+1,1))
                fx(i,1) = fx_old(i,1) - ddx_tmp*gdtdss*(hz_old(i+1,1)-hz_old(i,1))-crls*fybar
                if(ddx_tmp < 100.0d0) then
-                  if(ffld(i,1) == 0.0d0) then 
+                  if(ffld(i,1) == 0.0d0) then
                      if(half*(dz(i+1,1)+dz(i,1)) > 0.0d0) then
                         cf = cfs
                      else
                         cf = cfl
                      end if
-                  else 
+                  else
                      cf = ffld(i,1)
                   end if
-                  if(cf > 0.0d0) then 
+                  if(cf > 0.0d0) then
                      bcf = cf
-                  else  
+                  else
                      bcf = cf*cf*9.8d0*ddx_tmp**(-1.0d0/3.0d0)
                   end if
                   fric = dt*bcf*sqrt(fx_old(i,1)*fx_old(i,1)+fybar*fybar)/ddx_tmp/ddx_tmp
@@ -1915,18 +1845,18 @@ contains
                end if
                fy(i,1) = fy_old(i,1) - ddy_tmp*gdtds*(hz_old(i,2)-hz_old(i,1))+crls*fxbar
                if(ddy_tmp < 100.0d0) then
-                  if(ffld(i,1) == 0.0d0) then 
-                     if(half*(dz(i,2)+dz(i,1)) > 0.0d0) then 
+                  if(ffld(i,1) == 0.0d0) then
+                     if(half*(dz(i,2)+dz(i,1)) > 0.0d0) then
                         cf2 = cfs
-                     else 
+                     else
                         cf2 = cfl
                      end if
-                  else 
+                  else
                      cf2 = ffld(i,1)
                   end if
                   if(cf2 > 0.0d0) then
                      bcf2 = cf2
-                  else 
+                  else
                      bcf2 = cf2*cf2*9.8d0*ddy_tmp**(-1.0d0/3.0d0)
                   end if
                   fric2 = dt*bcf2*sqrt(fy_old(i,1)*fy_old(i,1)+fxbar*fxbar)/ddy_tmp/ddy_tmp
@@ -1979,18 +1909,18 @@ contains
                fybar = quart*(fy_old(i,2) + fy_old(i+1,2) + fy_old(i,1) + fy_old(i+1,1))
                fx(i,2) = fx_old(i,2) - ddx_tmp*gdtdss*(hz_old(i+1,2)-hz_old(i,2))-crls*fybar
                if(ddx_tmp < 100.0d0) then
-                  if(ffld(i,2) == 0.0d0) then 
+                  if(ffld(i,2) == 0.0d0) then
                      if(half*(dz(i+1,2)+dz(i,2)) > 0.0d0) then
                         cf = cfs
                      else
                         cf = cfl
                      end if
-                  else 
+                  else
                      cf = ffld(i,2)
                   end if
-                  if(cf > 0.0d0) then 
+                  if(cf > 0.0d0) then
                      bcf = cf
-                  else  
+                  else
                      bcf = cf*cf*9.8d0*ddx_tmp**(-1.0d0/3.0d0)
                   end if
                   fric = dt*bcf*sqrt(fx_old(i,2)*fx_old(i,2)+fybar*fybar)/ddx_tmp/ddx_tmp
@@ -2010,18 +1940,18 @@ contains
                end if
                fy(i,2) = fy_old(i,2) - ddy_tmp*gdtds*(hz_old(i,3)-hz_old(i,2))+crls*fxbar
                if(ddy_tmp < 100.0d0) then
-                  if(ffld(i,2) == 0.0d0) then 
-                     if(half*(dz(i,3)+dz(i,2)) > 0.0d0) then 
+                  if(ffld(i,2) == 0.0d0) then
+                     if(half*(dz(i,3)+dz(i,2)) > 0.0d0) then
                         cf2 = cfs
-                     else 
+                     else
                         cf2 = cfl
                      end if
-                  else 
+                  else
                      cf2 = ffld(i,2)
                   end if
                   if(cf2 > 0.0d0) then
                      bcf2 = cf2
-                  else 
+                  else
                      bcf2 = cf2*cf2*9.8d0*ddy_tmp**(-1.0d0/3.0d0)
                   end if
                   fric2 = dt*bcf2*sqrt(fy_old(i,2)*fy_old(i,2)+fxbar*fxbar)/ddy_tmp/ddy_tmp
@@ -2075,18 +2005,18 @@ contains
                fybar = quart*(fy_old(i,3) + fy_old(i+1,3) + fy_old(i,2) + fy_old(i+1,2))
                fx(i,3) = fx_old(i,3) - ddx_tmp*gdtdss*(hz_old(i+1,3)-hz_old(i,3))-crls*fybar
                if(ddx_tmp < 100.0d0) then
-                  if(ffld(i,3) == 0.0d0) then 
+                  if(ffld(i,3) == 0.0d0) then
                      if(half*(dz(i+1,3)+dz(i,3)) > 0.0d0) then
                         cf = cfs
                      else
                         cf = cfl
                      end if
-                  else 
+                  else
                      cf = ffld(i,3)
                   end if
-                  if(cf > 0.0d0) then 
+                  if(cf > 0.0d0) then
                      bcf = cf
-                  else  
+                  else
                      bcf = cf*cf*9.8d0*ddx_tmp**(-1.0d0/3.0d0)
                   end if
                   fric = dt*bcf*sqrt(fx_old(i,2)*fx_old(i,3)+fybar*fybar)/ddx_tmp/ddx_tmp
@@ -2104,18 +2034,18 @@ contains
                end if
                fy(i,3) = fy_old(i,3) - ddy_tmp*gdtds*(hz_old(i,4)-hz_old(i,3))+crls*fxbar
                if(ddy_tmp < 100.0d0) then
-                  if(ffld(i,3) == 0.0d0) then 
-                     if(half*(dz(i,4)+dz(i,3)) > 0.0d0) then 
+                  if(ffld(i,3) == 0.0d0) then
+                     if(half*(dz(i,4)+dz(i,3)) > 0.0d0) then
                         cf2 = cfs
-                     else 
+                     else
                         cf2 = cfl
                      end if
-                  else 
+                  else
                      cf2 = ffld(i,3)
                   end if
                   if(cf2 > 0.0d0) then
                      bcf2 = cf2
-                  else 
+                  else
                      bcf2 = cf2*cf2*9.8d0*ddy_tmp**(-1.0d0/3.0d0)
                   end if
                   fric2 = dt*bcf2*sqrt(fy_old(i,3)*fy_old(i,3)+fxbar*fxbar)/ddy_tmp/ddy_tmp
@@ -2175,18 +2105,18 @@ contains
                fybar = quart*(fy_old(i,nlat-1) + fy_old(i+1,nlat-1) + fy_old(i,nlat-2) + fy_old(i+1,nlat-2))
                fx(i,nlat-1) = fx_old(i,nlat-1) - ddx_tmp*gdtdss*(hz_old(i+1,nlat-1)-hz_old(i,nlat-1))-crls*fybar
                if(ddx_tmp < 100.0d0) then
-                  if(ffld(i,nlat-1) == 0.0d0) then 
+                  if(ffld(i,nlat-1) == 0.0d0) then
                      if(half*(dz(i+1,nlat-1)+dz(i,nlat-1)) > 0.0d0) then
                         cf = cfs
                      else
                         cf = cfl
                      end if
-                  else 
+                  else
                      cf = ffld(i,nlat-1)
                   end if
-                  if(cf > 0.0d0) then 
+                  if(cf > 0.0d0) then
                      bcf = cf
-                  else  
+                  else
                      bcf = cf*cf*9.8d0*ddx_tmp**(-1.0d0/3.0d0)
                   end if
                   fric = dt*bcf*sqrt(fx_old(i,nlat-1)*fx_old(i,nlat-1)+fybar*fybar)/ddx_tmp/ddx_tmp
@@ -2206,18 +2136,18 @@ contains
                end if
                fy(i,nlat-1) = fy_old(i,nlat-1) - ddy_tmp*gdtds *(hz_old(i,nlat)-hz_old(i,nlat-1))+crls*fxbar
                if(ddy_tmp < 100.0d0) then
-                  if(ffld(i,nlat-1) == 0.0d0) then 
-                     if(half*(dz(i,nlat)+dz(i,nlat-1)) > 0.0d0) then 
+                  if(ffld(i,nlat-1) == 0.0d0) then
+                     if(half*(dz(i,nlat)+dz(i,nlat-1)) > 0.0d0) then
                         cf2 = cfs
-                     else 
+                     else
                         cf2 = cfl
                      end if
-                  else 
+                  else
                      cf2 = ffld(i,nlat-1)
                   end if
                   if(cf2 > 0.0d0) then
                      bcf2 = cf2
-                  else 
+                  else
                      bcf2 = cf2*cf2*9.8d0*ddy_tmp**(-1.0d0/3.0d0)
                   end if
                   fric2 = dt*bcf2*sqrt(fy_old(i,nlat-1)*fy_old(i,nlat-1)+fxbar*fxbar)/ddy_tmp/ddy_tmp
@@ -2272,18 +2202,18 @@ contains
                fybar = quart*(fy_old(i,nlat-2) + fy_old(i+1,nlat-2) + fy_old(i,nlat-3) + fy_old(i+1,nlat-3))
                fx(i,nlat-2) = fx_old(i,nlat-2) - ddx_tmp*gdtdss*(hz_old(i+1,nlat-2)-hz_old(i,nlat-2))-crls*fybar
                if(ddx_tmp < 100.0d0) then
-                  if(ffld(i,nlat-2) == 0.0d0) then 
+                  if(ffld(i,nlat-2) == 0.0d0) then
                      if(half*(dz(i+1,nlat-2)+dz(i,nlat-2)) > 0.0d0) then
                         cf = cfs
                      else
                         cf = cfl
                      end if
-                  else 
+                  else
                      cf = ffld(i,nlat-2)
                   end if
-                  if(cf > 0.0d0) then 
+                  if(cf > 0.0d0) then
                      bcf = cf
-                  else  
+                  else
                      bcf = cf*cf*9.8d0*ddx_tmp**(-1.0d0/3.0d0)
                   end if
                   fric = dt*bcf*sqrt(fx_old(i,nlat-2)*fx_old(i,nlat-2)+fybar*fybar)/ddx_tmp/ddx_tmp
@@ -2303,18 +2233,18 @@ contains
                end if
                fy(i,nlat-2) = fy_old(i,nlat-2) - ddy_tmp*gdtds *(hz_old(i,nlat-1)-hz_old(i,nlat-2))+crls*fxbar
                if(ddy_tmp < 100.0d0) then
-                  if(ffld(i,nlat-2) == 0.0d0) then 
-                     if(half*(dz(i,nlat)+dz(i,nlat-2)) > 0.0d0) then 
+                  if(ffld(i,nlat-2) == 0.0d0) then
+                     if(half*(dz(i,nlat)+dz(i,nlat-2)) > 0.0d0) then
                         cf2 = cfs
-                     else 
+                     else
                         cf2 = cfl
                      end if
-                  else 
+                  else
                      cf2 = ffld(i,nlat-2)
                   end if
                   if(cf2 > 0.0d0) then
                      bcf2 = cf2
-                  else 
+                  else
                      bcf2 = cf2*cf2*9.8d0*ddy_tmp**(-1.0d0/3.0d0)
                   end if
                   fric2 = dt*bcf2*sqrt(fy_old(i,nlat-2)*fy_old(i,nlat-2)+fxbar*fxbar)/ddy_tmp/ddy_tmp
@@ -2384,18 +2314,18 @@ contains
                end if
                fx(nlon-1,j) = fx_old(nlon-1,j) - ddx_tmp*gdtdss*(hz_old(nlon,j)-hz_old(nlon-1,j))-crls*fybar
                if(ddx_tmp < 100.0d0) then
-                  if(ffld(nlon-1,j) == 0.0d0) then 
+                  if(ffld(nlon-1,j) == 0.0d0) then
                      if(half*(dz(nlon,j)+dz(nlon-1,j)) > 0.0d0) then
                         cf = cfs
                      else
                         cf = cfl
                      end if
-                  else 
+                  else
                      cf = ffld(nlon-1,j)
                   end if
-                  if(cf > 0.0d0) then 
+                  if(cf > 0.0d0) then
                      bcf = cf
-                  else  
+                  else
                      bcf = cf*cf*9.8d0*ddx_tmp**(-1.0d0/3.0d0)
                   end if
                   fric = dt*bcf*sqrt(fx_old(nlon-1,j)*fx_old(nlon-1,j)+fybar*fybar)/ddx_tmp/ddx_tmp
@@ -2411,18 +2341,18 @@ contains
                fxbar = quart*(fx_old(nlon-1,j) + fx_old(nlon-2,j) + fx_old(nlon-2,j+1) + fx_old(nlon-1,j+1))
                fy(nlon-1,j) = fy_old(nlon-1,j) - ddy_tmp*gdtds *(hz_old(nlon-1,j+1)-hz_old(nlon-1,j))+crls*fxbar
                if(ddy_tmp < 100.0d0) then
-                  if(ffld(nlon-1,j) == 0.0d0) then 
-                     if(half*(dz(nlon-1,j+1)+dz(nlon-1,j)) > 0.0d0) then 
+                  if(ffld(nlon-1,j) == 0.0d0) then
+                     if(half*(dz(nlon-1,j+1)+dz(nlon-1,j)) > 0.0d0) then
                         cf2 = cfs
-                     else 
+                     else
                         cf2 = cfl
                      end if
-                  else 
+                  else
                      cf2 = ffld(nlon-1,j)
                   end if
                   if(cf2 > 0.0d0) then
                      bcf2 = cf2
-                  else 
+                  else
                      bcf2 = cf2*cf2*9.8d0*ddy_tmp**(-1.0d0/3.0d0)
                   end if
                   fric2 = dt*bcf2*sqrt(fy_old(nlon-1,j)*fy_old(nlon-1,j)+fxbar*fxbar)/ddy_tmp/ddy_tmp
@@ -2477,18 +2407,18 @@ contains
                end if
                fx(1,j) = fx_old(1,j) - ddx_tmp*gdtdss*(hz_old(2,j)-hz_old(1,j))-crls*fybar
                if(ddx_tmp < 100.0d0) then
-                  if(ffld(1,j) == 0.0d0) then 
+                  if(ffld(1,j) == 0.0d0) then
                      if(half*(dz(2,j)+dz(1,j)) > 0.0d0) then
                         cf = cfs
                      else
                         cf = cfl
                      end if
-                  else 
+                  else
                      cf = ffld(1,j)
                   end if
-                  if(cf > 0.0d0) then 
+                  if(cf > 0.0d0) then
                      bcf = cf
-                  else  
+                  else
                      bcf = cf*cf*9.8d0*ddx_tmp**(-1.0d0/3.0d0)
                   end if
                   fric = dt*bcf*sqrt(fx_old(1,j)*fx_old(1,j)+fybar*fybar)/ddx_tmp/ddx_tmp
@@ -2504,18 +2434,18 @@ contains
                fxbar = half*(fx_old(1,j) + fx_old(1,j+1))
                fy(1,j) = fy_old(1,j) - ddy_tmp*gdtds *(hz_old(1,j+1)-hz_old(1,j))+crls*fxbar
                if(ddy_tmp < 100.0d0) then
-                  if(ffld(1,j) == 0.0d0) then 
-                     if(half*(dz(1,j+1)+dz(1,j)) > 0.0d0) then 
+                  if(ffld(1,j) == 0.0d0) then
+                     if(half*(dz(1,j+1)+dz(1,j)) > 0.0d0) then
                         cf2 = cfs
-                     else 
+                     else
                         cf2 = cfl
                      end if
-                  else 
+                  else
                      cf2 = ffld(1,j)
                   end if
                   if(cf2 > 0.0d0) then
                      bcf2 = cf2
-                  else 
+                  else
                      bcf2 = cf2*cf2*9.8d0*ddy_tmp**(-1.0d0/3.0d0)
                   end if
                   fric2 = dt*bcf2*sqrt(fy_old(1,j)*fy_old(1,j)+fxbar*fxbar)/ddy_tmp/ddy_tmp
@@ -2557,18 +2487,18 @@ contains
                fybar = quart*(fy_old(2,j) + fy_old(3,j) + fy_old(2,j-1) + fy_old(3,j-1))
                fx(2,j) = fx_old(2,j) - ddx_tmp*gdtdss*(hz_old(3,j)-hz_old(2,j))-crls*fybar
                if(ddx_tmp < 100.0d0) then
-                  if(ffld(2,j) == 0.0d0) then 
+                  if(ffld(2,j) == 0.0d0) then
                      if(half*(dz(3,j)+dz(2,j)) > 0.0d0) then
                         cf = cfs
                      else
                         cf = cfl
                      end if
-                  else 
+                  else
                      cf = ffld(2,j)
                   end if
-                  if(cf > 0.0d0) then 
+                  if(cf > 0.0d0) then
                      bcf = cf
-                  else  
+                  else
                      bcf = cf*cf*9.8d0*ddx_tmp**(-1.0d0/3.0d0)
                   end if
                   fric = dt*bcf*sqrt(fx_old(2,j)*fx_old(2,j)+fybar*fybar)/ddx_tmp/ddx_tmp
@@ -2584,18 +2514,18 @@ contains
                fxbar = quart*(fx_old(2,j) + fx_old(1,j) + fx_old(1,j+1) + fx_old(2,j+1))
                fy(2,j) = fy_old(2,j) - ddy_tmp*gdtds *(hz_old(2,j+1)-hz_old(2,j))+crls*fxbar
                if(ddy_tmp < 100.0d0) then
-                  if(ffld(2,j) == 0.0d0) then 
-                     if(half*(dz(2,j+1)+dz(2,j)) > 0.0d0) then 
+                  if(ffld(2,j) == 0.0d0) then
+                     if(half*(dz(2,j+1)+dz(2,j)) > 0.0d0) then
                         cf2 = cfs
-                     else 
+                     else
                         cf2 = cfl
                      end if
-                  else 
+                  else
                      cf2 = ffld(2,j)
                   end if
                   if(cf2 > 0.0d0) then
                      bcf2 = cf2
-                  else 
+                  else
                      bcf2 = cf2*cf2*9.8d0*ddy_tmp**(-1.0d0/3.0d0)
                   end if
                   fric2 = dt*bcf2*sqrt(fy_old(2,j)*fy_old(2,j)+fxbar*fxbar)/ddy_tmp/ddy_tmp
@@ -2652,18 +2582,18 @@ contains
                end if
                fx(2,j) = fx_old(2,j) - ddx_tmp*gdtdss*(hz_old(3,j)-hz_old(2,j))-crls*fybar
                if(ddx_tmp < 100.0d0) then
-                  if(ffld(2,j) == 0.0d0) then 
+                  if(ffld(2,j) == 0.0d0) then
                      if(half*(dz(3,j)+dz(2,j)) > 0.0d0) then
                         cf = cfs
                      else
                         cf = cfl
                      end if
-                  else 
+                  else
                      cf = ffld(2,j)
                   end if
-                  if(cf > 0.0d0) then 
+                  if(cf > 0.0d0) then
                      bcf = cf
-                  else  
+                  else
                      bcf = cf*cf*9.8d0*ddx_tmp**(-1.0d0/3.0d0)
                   end if
                   fric = dt*bcf*sqrt(fx_old(2,j)*fx_old(2,j)+fybar*fybar)/ddx_tmp/ddx_tmp
@@ -2677,18 +2607,18 @@ contains
                fxbar = quart*(fx_old(2,j) + fx_old(1,j) + fx_old(1,j+1) + fx_old(2,j+1))
                fy(2,j) = fy_old(2,j) - ddy_tmp*gdtds *(hz_old(2,j+1)-hz_old(2,j))+crls*fxbar
                if(ddy_tmp < 100.0d0) then
-                  if(ffld(2,j) == 0.0d0) then 
-                     if(half*(dz(2,j+1)+dz(2,j)) > 0.0d0) then 
+                  if(ffld(2,j) == 0.0d0) then
+                     if(half*(dz(2,j+1)+dz(2,j)) > 0.0d0) then
                         cf2 = cfs
-                     else 
+                     else
                         cf2 = cfl
                      end if
-                  else 
+                  else
                      cf2 = ffld(2,j)
                   end if
                   if(cf2 > 0.0d0) then
                      bcf2 = cf2
-                  else 
+                  else
                      bcf2 = cf2*cf2*9.8d0*ddy_tmp**(-1.0d0/3.0d0)
                   end if
                   fric2 = dt*bcf2*sqrt(fy_old(2,j)*fy_old(2,j)+fxbar*fxbar)/ddy_tmp/ddy_tmp
@@ -2749,18 +2679,18 @@ contains
                end if
                fx(nlon-2,j) = fx_old(nlon-2,j) - ddx_tmp*gdtdss*(hz_old(nlon-2,j)-hz_old(nlon-1,j))-crls*fybar
                if(ddx_tmp < 100.0d0) then
-                  if(ffld(nlon-2,j) == 0.0d0) then 
+                  if(ffld(nlon-2,j) == 0.0d0) then
                      if(half*(dz(nlon,j)+dz(nlon-2,j)) > 0.0d0) then
                         cf = cfs
                      else
                         cf = cfl
                      end if
-                  else 
+                  else
                      cf = ffld(nlon-2,j)
                   end if
-                  if(cf > 0.0d0) then 
+                  if(cf > 0.0d0) then
                      bcf = cf
-                  else  
+                  else
                      bcf = cf*cf*9.8d0*ddx_tmp**(-1.0d0/3.0d0)
                   end if
                   fric = dt*bcf*sqrt(fx_old(nlon-2,j)*fx_old(nlon-2,j)+fybar*fybar)/ddx_tmp/ddx_tmp
@@ -2776,18 +2706,18 @@ contains
                fxbar = quart*(fx_old(nlon-2,j) + fx_old(nlon-3,j) + fx_old(nlon-3,j+1) + fx_old(nlon-2,j+1))
                fy(nlon-2,j) = fy_old(nlon-2,j) - ddy_tmp*gdtds *(hz_old(nlon-2,j+1)-hz_old(nlon-2,j))+crls*fxbar
                if(ddy_tmp < 100.0d0) then
-                  if(ffld(nlon-2,j) == 0.0d0) then 
-                     if(half*(dz(nlon-2,j+1)+dz(nlon-2,j)) > 0.0d0) then 
+                  if(ffld(nlon-2,j) == 0.0d0) then
+                     if(half*(dz(nlon-2,j+1)+dz(nlon-2,j)) > 0.0d0) then
                         cf2 = cfs
-                     else 
+                     else
                         cf2 = cfl
                      end if
-                  else 
+                  else
                      cf2 = ffld(nlon-2,j)
                   end if
                   if(cf2 > 0.0d0) then
                      bcf2 = cf2
-                  else 
+                  else
                      bcf2 = cf2*cf2*9.8d0*ddy_tmp**(-1.0d0/3.0d0)
                   end if
                   fric2 = dt*bcf2*sqrt(fy_old(nlon-2,j)*fy_old(nlon-2,j)+fxbar*fxbar)/ddy_tmp/ddy_tmp
@@ -2837,18 +2767,18 @@ contains
                end if
                fx(3,j) = fx_old(3,j) - ddx_tmp*gdtdss*(hz_old(4,j)-hz_old(3,j))-crls*fybar
                if(ddx_tmp < 100.0d0) then
-                  if(ffld(3,j) == 0.0d0) then 
+                  if(ffld(3,j) == 0.0d0) then
                      if(half*(dz(4,j)+dz(3,j)) > 0.0d0) then
                         cf = cfs
                      else
                         cf = cfl
                      end if
-                  else 
+                  else
                      cf = ffld(3,j)
                   end if
-                  if(cf > 0.0d0) then 
+                  if(cf > 0.0d0) then
                      bcf = cf
-                  else  
+                  else
                      bcf = cf*cf*9.8d0*ddx_tmp**(-1.0d0/3.0d0)
                   end if
                   fric = dt*bcf*sqrt(fx_old(3,j)*fx_old(3,j)+fybar*fybar)/ddx_tmp/ddx_tmp
@@ -2864,18 +2794,18 @@ contains
                fxbar = quart*(fx_old(3,j) + fx_old(2,j) + fx_old(2,j+1) + fx_old(3,j+1))
                fy(3,j) = fy_old(3,j) - ddy_tmp*gdtds *(hz_old(3,j+1)-hz_old(3,j))+crls*fxbar
                if(ddy_tmp < 100.0d0) then
-                  if(ffld(3,j) == 0.0d0) then 
-                     if(half*(dz(3,j+1)+dz(3,j)) > 0.0d0) then 
+                  if(ffld(3,j) == 0.0d0) then
+                     if(half*(dz(3,j+1)+dz(3,j)) > 0.0d0) then
                         cf2 = cfs
-                     else 
+                     else
                         cf2 = cfl
                      end if
-                  else 
+                  else
                      cf2 = ffld(3,j)
                   end if
                   if(cf2 > 0.0d0) then
                      bcf2 = cf2
-                  else 
+                  else
                      bcf2 = cf2*cf2*9.8d0*ddy_tmp**(-1.0d0/3.0d0)
                   end if
                   fric2 = dt*bcf2*sqrt(fy_old(3,j)*fy_old(3,j)+fxbar*fxbar)/ddy_tmp/ddy_tmp

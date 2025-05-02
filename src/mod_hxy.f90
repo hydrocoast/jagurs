@@ -13,17 +13,11 @@ implicit none
 
 contains
 
-#ifndef MPI
-   subroutine hxy_rwg(wfld,dt,th0,dth,nlon,nlat)
-#else
    subroutine hxy_rwg(wfld,dt,th0,dth,joff,nlon,nlat)
-#endif
       type(wave_arrays), target, intent(inout) :: wfld
       real(kind=REAL_BYTE), intent(in) :: dt, th0, dth
       integer(kind=4), intent(in) :: nlon, nlat
-#ifdef MPI
       integer(kind=4), intent(in) :: joff
-#endif
 
 #ifdef CARTESIAN
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: fx, fy, hz
@@ -92,11 +86,7 @@ contains
       return
    end subroutine hxy_rwg
 
-#ifndef MPI
-   subroutine hxynl_rwg(wfld,dfld,ifz,dt,th0,dth,nlon,nlat,smallh)
-#else
    subroutine hxynl_rwg(wfld,dfld,ifz,dt,th0,dth,joff,nlon,nlat,smallh,bflag)
-#endif
       type(wave_arrays), target, intent(inout) :: wfld
       type(depth_arrays), target, intent(inout) :: dfld
 ! === Conversion from flux to velocity should be done right after calc. ========
@@ -110,9 +100,7 @@ contains
       real(kind=REAL_BYTE), intent(in) :: dt, th0, dth
       integer(kind=4), intent(in) :: nlon, nlat
       real(kind=REAL_BYTE), intent(in) :: smallh
-#ifdef MPI
       integer(kind=4), intent(in) :: joff, bflag
-#endif
 
 #ifdef CARTESIAN
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: fx, fy, hz, dz

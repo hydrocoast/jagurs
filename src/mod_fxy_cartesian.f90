@@ -15,11 +15,16 @@ implicit none
 
 contains
 
-   subroutine fxy_rwg(wfld,dfld,dt,dxdy,nlon,nlat)
+   subroutine fxy_rwg(wfld,dfld,dt,dxdy,dth,joff,nlon,nlat,istep,fg)
       type(wave_arrays), target, intent(inout) :: wfld
       type(depth_arrays), target, intent(in) :: dfld
       real(kind=REAL_BYTE), intent(in) :: dt, dxdy
       integer(kind=4), intent(in) :: nlon, nlat
+! === Dummy arguments ==========================================================
+      real(kind=REAL_BYTE), intent(in) :: dth
+      integer(kind=4), intent(in) :: joff, istep
+      type(data_grids), target, intent(in) :: fg
+! ==============================================================================
 
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: fx, fy, hz, dz
       integer(kind=4) :: i, j
@@ -54,11 +59,7 @@ contains
       return
    end subroutine fxy_rwg
 
-#ifndef MPI
-   subroutine fxynl_rwg(wfld,dfld,ffld,ifz,cfs,cfl,dt,dxdy,nlon,nlat,gflag,smallh)
-#else
-   subroutine fxynl_rwg(wfld,dfld,ffld,ifz,cfs,cfl,dt,dxdy,nlon,nlat,gflag,smallh,bflag)
-#endif
+   subroutine fxynl_rwg(wfld,dfld,ffld,ifz,cfs,cfl,cflag,dt,dxdy,dth,joff,nlon,nlat,gflag,smallh,bflag,istep,fg)
       type(wave_arrays), target, intent(inout) :: wfld
       type(depth_arrays), target, intent(inout) :: dfld
       real(kind=REAL_BYTE), target, dimension(nlon,nlat), intent(in) :: ffld
@@ -71,9 +72,12 @@ contains
       real(kind=REAL_BYTE), intent(in) :: dt, dxdy
       integer(kind=4), intent(in) :: nlon, nlat, gflag
       real(kind=REAL_BYTE), intent(in) :: smallh
-#ifdef MPI
       integer(kind=4), intent(in) :: bflag
-#endif
+! === Dummy arguments ==========================================================
+      integer(kind=4), intent(in) :: cflag, joff, istep
+      real(kind=REAL_BYTE), intent(in) :: dth
+      type(data_grids), target, intent(in) :: fg
+! ==============================================================================
 
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: fx, fy, hz, ddx, ddy, dz
       real(kind=REAL_BYTE) :: dtds, gdtds, bcf

@@ -1,12 +1,11 @@
 How to install JAGURS-D
-May 13, 2024
+May 23, 2024
 
 [TOC]
 1. Requirements
 2. How to install
 3. Special instructions for each platform
-   3.1. The Earth simulator and NEC SX
-   3.2. K computer
+   3.1. K computer
 4. Troubleshooting
 
 ================================================================================
@@ -25,7 +24,6 @@ JAGURS-D requires the followings.
      more libraries (HDF5, cURL, etc...) may be required to link.
 
    - FFT library
-      - ASL for the Earth simulator and NEC SX
       - FFW3 (URL: http://www.fftw.org/) for others
         (MKL FFTW3 interface is also okay)
 
@@ -64,8 +62,6 @@ existing samples.
       Intel Fortran/C++ compilers, SGI MPT and MKL FFTW3 interface are
       utilized.
 
-   SX (obsolete): Cross environment for the Earth simulator and NEC SX
-
    K (obsolete): Cross environment for K computer
 
 Typically, you need to modify install path of each libraries.
@@ -85,23 +81,7 @@ in JAGURS-D_V???? directory.
 ================================================================================
 3. Special instructions for each platform
 --------------------------------------------------------------------------------
-3.1. The Earth simulator and NEC SX
-
-(1) How to install PROJ.4 library
-
-Invoke the following commands on cross environment.
-Here, PROJ.4 install path is ${PROJ4_DIR}.
-
-   $ tar -zxvf proj-4.9.1.tar.gz
-   $ cd proj-4.9.1
-   $ ./configure CC=sxcc CFLAGS=-size_t64 AR=sxar RANLIB=touch \
-   --host=x86_64-unknown-linux-gnu --target=sx8r-nec-superux \
-   --without-mutex --disable-shared --prefix=${PROJ4_DIR}
-   $ make
-   $ make install
-
---------------------------------------------------------------------------------
-3.2. K computer
+3.1. K computer
 
 (1) How to install PROJ.4 library
 

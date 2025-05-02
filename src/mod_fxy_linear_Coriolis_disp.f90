@@ -22,41 +22,16 @@ implicit none
 
 contains
 
-#ifndef MPI
-#ifndef CONV_CHECK
-! === Coriolis force is supported on linear calc. ==============================
-!  subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,nlon,nlat,gflag,fg,cg)
-   subroutine fxy_rwg_Coriolis_disp(wfld,dfld,cflag,dt,th0,dth,nlon,nlat,gflag,fg,cg)
-! ==============================================================================
-#else
-! === Coriolis force is supported on linear calc. ==============================
-!  subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,nlon,nlat,gflag,fg,cg,conv_step)
-   subroutine fxy_rwg_Coriolis_disp(wfld,dfld,cflag,dt,th0,dth,nlon,nlat,gflag,fg,cg,conv_step)
-! ==============================================================================
-#endif
-#else
-#ifndef CONV_CHECK
-! === Coriolis force is supported on linear calc. ==============================
-!  subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,joff,nlon,nlat,gflag,bflag,fg,cg)
-   subroutine fxy_rwg_Coriolis_disp(wfld,dfld,cflag,dt,th0,dth,joff,nlon,nlat,gflag,bflag,fg,cg)
-! ==============================================================================
-#else
 ! === Coriolis force is supported on linear calc. ==============================
 !  subroutine fxy_rwg_disp(wfld,dfld,dt,th0,dth,joff,nlon,nlat,gflag,bflag,fg,cg,conv_step)
    subroutine fxy_rwg_Coriolis_disp(wfld,dfld,cflag,dt,th0,dth,joff,nlon,nlat,gflag,bflag,fg,cg,conv_step)
 ! ==============================================================================
-#endif
-#endif
       type(wave_arrays), target, intent(inout) :: wfld
       type(depth_arrays), target, intent(in) :: dfld
       real(kind=REAL_BYTE), intent(in) :: dt, th0, dth
       integer(kind=4), intent(in) :: nlon, nlat
-#ifdef MPI
       integer(kind=4), intent(in) :: joff
-#endif
-#ifdef CONV_CHECK
       integer(kind=4), intent(out) :: conv_step
-#endif
 ! === Coriolis force is supported on linear calc. ==============================
       integer(kind=4), intent(in) :: cflag
 ! ==============================================================================
@@ -73,8 +48,8 @@ contains
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: dx, dy
 ! === Dispersive ===============================================================
       type(data_grids), target, intent(inout) :: fg, cg
-#ifdef MPI
       integer(kind=4), intent(in) :: bflag
+#ifdef MPI
       integer(kind=4) :: ist_, jst_
 #endif
       integer(kind=4), intent(in) :: gflag
@@ -583,11 +558,7 @@ contains
          end do
 #ifdef MPI
 !$omp single
-#ifndef MULTI
-         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, MPI_COMM_WORLD, ierr)
-#else
-         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-#endif
+         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, __MPICOMM__, ierr)
 !$omp end single
 #endif
          if(diffxy < conv_val) then

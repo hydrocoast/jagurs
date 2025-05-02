@@ -8,24 +8,12 @@ implicit none
 
 contains
 
-#ifndef MPI
-! === Coriolis force is supported on linear calc. ==============================
-!  subroutine fxy_rwg(wfld,dfld,dt,th0,dth,nlon,nlat)
-   subroutine fxy_rwg_Coriolis(wfld,dfld,cflag,dt,th0,dth,nlon,nlat,gflag)
-! ==============================================================================
-#else
-! === Coriolis force is supported on linear calc. ==============================
-!  subroutine fxy_rwg(wfld,dfld,dt,th0,dth,joff,nlon,nlat)
    subroutine fxy_rwg_Coriolis(wfld,dfld,cflag,dt,th0,dth,joff,nlon,nlat,gflag,bflag)
-! ==============================================================================
-#endif
       type(wave_arrays), target, intent(inout) :: wfld
       type(depth_arrays), target, intent(in) :: dfld
       real(kind=REAL_BYTE), intent(in) :: dt, th0, dth
       integer(kind=4), intent(in) :: nlon, nlat
-#ifdef MPI
       integer(kind=4), intent(in) :: joff
-#endif
 ! === Coriolis force is supported on linear calc. ==============================
       integer(kind=4), intent(in) :: cflag
 ! ==============================================================================
@@ -41,8 +29,8 @@ contains
 ! ==============================================================================
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: dx, dy
 ! === Coriolis force is supported on linear calc. ==============================
-#ifdef MPI
       integer(kind=4), intent(in) :: bflag
+#ifdef MPI
       integer(kind=4) :: ist_, jst_
 #endif
       integer(kind=4), intent(in) :: gflag

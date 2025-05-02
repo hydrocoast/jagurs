@@ -1,3 +1,4 @@
+#ifndef NM_DEF
 #ifdef DBLE_MATH
 #include "dble_math.h"
 #endif
@@ -11,7 +12,6 @@ real(kind=REAL_BYTE) :: srclon, srclat, tmax, dt
 real(kind=REAL_BYTE), allocatable, dimension(:,:) :: nm_atm
 integer(kind=4) :: dist_s, dist_e, sind, minmode, maxmode
 real(kind=REAL_BYTE) :: Samp, SDt, OH
-real(kind=REAL_BYTE), parameter :: rhow = 1.0d3 ! water density (kg/m3)
 integer(kind=4) :: nstep, interval
 logical :: DCflag, SYNflag
 character(len=256) :: atmfile
@@ -231,3 +231,120 @@ contains
       return
    end subroutine interp_P
 end module mod_normalmode
+#else
+! ======================================================================================================================
+! === Write user define code. BEGIN ====================================================================================
+! ======================================================================================================================
+#ifdef DBLE_MATH
+#include "dble_math.h"
+#endif
+#include "real.h"
+module mod_normalmode
+#ifdef MPI
+use mod_mpi_fatal
+#endif
+implicit none
+real(kind=REAL_BYTE), parameter :: R = 6371.0d3
+real(kind=REAL_BYTE), parameter :: pi = 3.14159265d0
+
+real(kind=REAL_BYTE) :: srclon, srclat, theta, vel, width, patm
+real(kind=REAL_BYTE) :: dt, mlat0, mlon0, dxdy
+
+contains
+
+! ----------------------------------------------------------------------------------------------------------------------
+! --- Subroutine normalmode_read_namelist:
+! --- Read parameters from the namelist file typically named "normalmode.namelist" and set model dt.
+! ----------------------------------------------------------------------------------------------------------------------
+   subroutine normalmode_read_namelist(dt_model)
+      real(kind=REAL_BYTE), intent(in) :: dt_model
+
+      namelist /normalmode/ srclon, srclat, theta, vel, width, patm
+      open(1,file='normalmode.namelist',action='read',status='old',form='formatted')
+      read(1,normalmode)
+      close(1)
+
+      write(6,'(a,f8.2,a)') '[Normal mode] srclon: ', srclon, ' [degree]'
+      write(6,'(a,f8.2,a)') '[Normal mode] srclat: ', srclat, ' [degree]'
+      write(6,'(a,f8.2,a)') '[Normal mode] theta:  ', theta,  ' [degree]'
+      write(6,'(a,f8.2,a)') '[Normal mode] vel:    ', vel,    ' [m/s]'
+      write(6,'(a,f8.2,a)') '[Normal mode] width:  ', width,  ' [km]'
+      write(6,'(a,f8.2,a)') '[Normal mode] patm:   ', patm,   ' [hPa]'
+
+      width = 1000.0d0*width ! km -> m
+      patm  = 100.0d0*patm   ! hPa -> Pa
+
+      dt = dt_model
+
+      return
+   end subroutine normalmode_read_namelist
+
+   subroutine deg2dist(lat1, lon1, lat2, lon2, dist)
+      real(kind=REAL_BYTE), intent(in) :: lat1, lon1, lat2, lon2
+      real(kind=REAL_BYTE), intent(out) :: dist
+      real(kind=REAL_BYTE) :: phi1, phi2, lamda1, lamda2
+
+      phi1 = lat1*pi/180.0d0
+      phi2 = lat2*pi/180.0d0
+      lamda1 = lon1*pi/180.0d0
+      lamda2 = lon2*pi/180.0d0
+
+      dist = R*acos(sin(phi1)*sin(phi2) + cos(phi1)*cos(phi2)*cos(lamda1 - lamda2))
+
+      return
+   end subroutine deg2dist
+
+! ----------------------------------------------------------------------------------------------------------------------
+! --- Subroutine normalmode_set_params:
+! --- Set latitude, longitude and lattice size. Note that they depend on calc. area (vary on each domain).
+! ----------------------------------------------------------------------------------------------------------------------
+   subroutine normalmode_set_params(mlat00, mlon00, dxdy0)
+      real(kind=REAL_BYTE), intent(in) :: mlat00, mlon00, dxdy0
+
+      mlat0 = mlat00
+      mlon0 = mlon00
+      dxdy = dxdy0
+
+      return
+   end subroutine normalmode_set_params
+
+! ----------------------------------------------------------------------------------------------------------------------
+! --- Subroutine calc_nm_P:
+! --- Calculate pressure on each step.
+! ----------------------------------------------------------------------------------------------------------------------
+   subroutine calc_nm_P(nlon, nlat, P)
+      integer(kind=4), intent(in) :: nlon, nlat
+      real(kind=REAL_BYTE), intent(out) :: P(nlon, nlat)
+      real(kind=REAL_BYTE) :: north, west, lat1, lon1, dist, dx, dy
+      integer(kind=4) :: i, j
+
+      dy = vel*dt*cos(theta*pi/180.0d0)
+      dy = (180.0d0/pi)*(dy/R)
+
+      dx = vel*dt*sin(theta*pi/180.0d0)
+      dx = (180.0d0/pi)*(dx/(R*cos(srclat*pi/180.0d0)))
+
+      srclat = srclat + dy
+      srclon = srclon + dx
+
+      north = 90.0d0 - mlat0/60.0d0
+      west  = mlon0/60.0d0
+      if(west > 180.0d0) west = west - 360.0d0
+
+!$omp parallel do private(i,j,lat1,lon1,dist)
+      do j = 1, nlat
+         lat1 = north - (j - 1)*dxdy
+         do i = 1, nlon
+            lon1 = west + (i - 1)*dxdy
+            call deg2dist(lat1, lon1, srclat, srclon, dist)
+            P(i,j) = patm*exp(-(dist/width)**2)
+         end do
+      end do
+
+      return
+   end subroutine calc_nm_P
+end module mod_normalmode
+! ======================================================================================================================
+! === Write user define code. END ======================================================================================
+! ======================================================================================================================
+#endif

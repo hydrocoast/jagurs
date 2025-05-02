@@ -29,26 +29,16 @@ implicit none
 
 contains
 
-#ifndef MPI
-#ifndef CONV_CHECK
-   subroutine fxy_rwg_disp(wfld,dfld,dt,dxdy,nlon,nlat,gflag,fg,cg)
-#else
-   subroutine fxy_rwg_disp(wfld,dfld,dt,dxdy,nlon,nlat,gflag,fg,cg,conv_step)
-#endif
-#else
-#ifndef CONV_CHECK
-   subroutine fxy_rwg_disp(wfld,dfld,dt,dxdy,nlon,nlat,gflag,bflag,fg,cg)
-#else
-   subroutine fxy_rwg_disp(wfld,dfld,dt,dxdy,nlon,nlat,gflag,bflag,fg,cg,conv_step)
-#endif
-#endif
+   subroutine fxy_rwg_disp(wfld,dfld,dt,dxdy,dth,joff,nlon,nlat,gflag,bflag,fg,cg,conv_step,istep)
       type(wave_arrays), target, intent(inout) :: wfld
       type(depth_arrays), target, intent(in) :: dfld
       real(kind=REAL_BYTE), intent(in) :: dt, dxdy
       integer(kind=4), intent(in) :: nlon, nlat
-#ifdef CONV_CHECK
+! === Dummy arguments ==========================================================
+      real(kind=REAL_BYTE), intent(in) :: dth
+      integer(kind=4), intent(in) :: joff, istep
+! ==============================================================================
       integer(kind=4), intent(out) :: conv_step
-#endif
 
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: fx, fy, hz, dz, p
       integer(kind=4) :: i, j
@@ -57,8 +47,8 @@ contains
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: dx, dy
 ! === Dispersive ===============================================================
       type(data_grids), target, intent(inout) :: fg, cg
-#ifdef MPI
       integer(kind=4), intent(in) :: bflag
+#ifdef MPI
       integer(kind=4) :: ist_, jst_
 #endif
       integer(kind=4), intent(in) :: gflag
@@ -369,11 +359,7 @@ contains
          end do
 #ifdef MPI
 !$omp single
-#ifndef MULTI
-         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, MPI_COMM_WORLD, ierr)
-#else
-         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-#endif
+         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, __MPICOMM__, ierr)
 !$omp end single
 #endif
          if(diffxy < conv_val) then
@@ -424,23 +410,8 @@ contains
       return
    end subroutine fxy_rwg_disp
 
-#ifndef MPI
-#ifndef CONV_CHECK
-   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,dt,dxdy,nlon,nlat, &
-                             gflag,smallh,fg,cg)
-#else
-   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,dt,dxdy,nlon,nlat, &
-                             gflag,smallh,fg,cg,conv_step)
-#endif
-#else
-#ifndef CONV_CHECK
-   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,dt,dxdy,nlon,nlat, &
-                             gflag,smallh,bflag,fg,cg)
-#else
-   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,dt,dxdy,nlon,nlat, &
-                             gflag,smallh,bflag,fg,cg,conv_step)
-#endif
-#endif
+   subroutine fxynl_rwg_disp(wfld,dfld,ffld,ifz,cfs,cfl,cflag,dt,dxdy,dth,joff,nlon,nlat, &
+                             gflag,smallh,bflag,fg,cg,conv_step,istep)
       type(wave_arrays), target, intent(inout) :: wfld
       type(depth_arrays), target, intent(inout) :: dfld
       real(kind=REAL_BYTE), target, dimension(nlon,nlat), intent(in) :: ffld
@@ -453,12 +424,12 @@ contains
       real(kind=REAL_BYTE), intent(in) :: dt, dxdy
       integer(kind=4), intent(in) :: nlon, nlat, gflag
       real(kind=REAL_BYTE), intent(in) :: smallh
-#ifdef MPI
       integer(kind=4), intent(in) :: bflag
-#endif
-#ifdef CONV_CHECK
+! === Dummy arguments ==========================================================
+      integer(kind=4), intent(in) :: cflag, joff, istep
+      real(kind=REAL_BYTE), intent(in) :: dth
+! ==============================================================================
       integer(kind=4), intent(out) :: conv_step
-#endif
 
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: fx, fy, hz, ddx, ddy, dz, p
       real(kind=REAL_BYTE) :: dtds, gdtds, bcf
@@ -1538,11 +1509,7 @@ contains
          end do
 #ifdef MPI
 !$omp single
-#ifndef MULTI
-         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, MPI_COMM_WORLD, ierr)
-#else
-         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-#endif
+         call MPI_Allreduce(MPI_IN_PLACE, diffxy, 1, REAL_MPI, MPI_MAX, __MPICOMM__, ierr)
 !$omp end single
 #endif
          if(diffxy < conv_val) then

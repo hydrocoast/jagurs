@@ -59,13 +59,8 @@ contains
       kx    = dgrid(target_domain)%my%kx
       ky    = dgrid(target_domain)%my%ky
 
-#ifndef MULTI
-      call MPI_Comm_size(MPI_COMM_WORLD, nprocs, ierr)
-      call MPI_Comm_rank(MPI_COMM_WORLD, myrank, ierr)
-#else
-      call MPI_Comm_size(MPI_MEMBER_WORLD, nprocs, ierr)
-      call MPI_Comm_rank(MPI_MEMBER_WORLD, myrank, ierr)
-#endif
+      call MPI_Comm_size(__MPICOMM__, nprocs, ierr)
+      call MPI_Comm_rank(__MPICOMM__, myrank, ierr)
 #endif
       dh = dgrid(target_domain)%my%dh
 
@@ -163,13 +158,8 @@ contains
                tmpdzx(i) = dg%depth_field%dz(i-kx+1,target_j-ky+1)
             end do
          end if
-#ifndef MULTI
-         call MPI_Allreduce(MPI_IN_PLACE,tmphzx,nx,REAL_MPI,MPI_SUM,MPI_COMM_WORLD,ierr)
-         call MPI_Allreduce(MPI_IN_PLACE,tmpdzx,nx,REAL_MPI,MPI_SUM,MPI_COMM_WORLD,ierr)
-#else
-         call MPI_Allreduce(MPI_IN_PLACE,tmphzx,nx,REAL_MPI,MPI_SUM,MPI_MEMBER_WORLD,ierr)
-         call MPI_Allreduce(MPI_IN_PLACE,tmpdzx,nx,REAL_MPI,MPI_SUM,MPI_MEMBER_WORLD,ierr)
-#endif
+         call MPI_Allreduce(MPI_IN_PLACE,tmphzx,nx,REAL_MPI,MPI_SUM,__MPICOMM__,ierr)
+         call MPI_Allreduce(MPI_IN_PLACE,tmpdzx,nx,REAL_MPI,MPI_SUM,__MPICOMM__,ierr)
          if(myrank == 0) then
             open(998,file=trim(str),action='write',status='replace',form='formatted')
             do i = 1, nx, space_interval
@@ -198,13 +188,8 @@ contains
                tmpdzy(j) = dg%depth_field%dz(target_i-kx+1,j-ky+1)
             end do
          end if
-#ifndef MULTI
-         call MPI_Allreduce(MPI_IN_PLACE,tmphzy,ny,REAL_MPI,MPI_SUM,MPI_COMM_WORLD,ierr)
-         call MPI_Allreduce(MPI_IN_PLACE,tmpdzy,ny,REAL_MPI,MPI_SUM,MPI_COMM_WORLD,ierr)
-#else
-         call MPI_Allreduce(MPI_IN_PLACE,tmphzy,ny,REAL_MPI,MPI_SUM,MPI_MEMBER_WORLD,ierr)
-         call MPI_Allreduce(MPI_IN_PLACE,tmpdzy,ny,REAL_MPI,MPI_SUM,MPI_MEMBER_WORLD,ierr)
-#endif
+         call MPI_Allreduce(MPI_IN_PLACE,tmphzy,ny,REAL_MPI,MPI_SUM,__MPICOMM__,ierr)
+         call MPI_Allreduce(MPI_IN_PLACE,tmpdzy,ny,REAL_MPI,MPI_SUM,__MPICOMM__,ierr)
          if(myrank == 0) then
             open(999,file=trim(str),action='write',status='replace',form='formatted')
             do j = 1, ny, space_interval

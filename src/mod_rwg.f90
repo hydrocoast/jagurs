@@ -419,44 +419,18 @@ contains
       return
    end subroutine outsea_rwg
 
-#ifndef CONV_CHECK
-#ifndef CARTESIAN
-#ifndef NORMALMODE
-   subroutine tstep_grid(mode,ig,cg,fg,cf,cfl,crls,dt,smallh_xy,smallh_wod,c2p_all)
-#else
-   subroutine tstep_grid(mode,ig,cg,fg,cf,cfl,crls,dt,smallh_xy,smallh_wod,c2p_all,istep)
-#endif
-#else
-   subroutine tstep_grid(mode,ig,cg,fg,cf,cfl,dt,smallh_xy,smallh_wod,c2p_all)
-#endif
-#else
-#ifndef CARTESIAN
-#ifndef NORMALMODE
-   subroutine tstep_grid(mode,ig,cg,fg,cf,cfl,crls,dt,smallh_xy,smallh_wod,c2p_all,conv_step)
-#else
    subroutine tstep_grid(mode,ig,cg,fg,cf,cfl,crls,dt,smallh_xy,smallh_wod,c2p_all,conv_step,istep)
-#endif
-#else
-   subroutine tstep_grid(mode,ig,cg,fg,cf,cfl,dt,smallh_xy,smallh_wod,c2p_all,conv_step)
-#endif
-#endif
       integer(kind=4), intent(in) :: mode, ig
       type(data_grids), target, intent(inout) :: cg, fg
       real(kind=REAL_BYTE), intent(in) :: cf
 ! === Modification to fit pointer version! =====================================
       real(kind=REAL_BYTE), intent(in) :: cfl
 ! ==============================================================================
-#ifndef CARTESIAN
       integer(kind=4), intent(in) :: crls
-#endif
       real(kind=REAL_BYTE), intent(in) :: dt, smallh_xy, smallh_wod
       integer(kind=4), intent(in) :: c2p_all
-#ifdef CONV_CHECK
       integer(kind=4), intent(out) :: conv_step
-#endif
-#ifdef NORMALMODE
       integer(kind=4), intent(in) :: istep
-#endif
 
       type(wave_arrays), pointer :: wfld
       type(depth_arrays), pointer :: dfld
@@ -465,13 +439,7 @@ contains
       integer(kind=4) :: niz, njz, lflag
       integer(kind=4), pointer, dimension(:,:) :: wod
       type(boundary_arrays), pointer :: hbnd, ubnd
-#ifdef MPI
       integer(kind=4) :: rank, joff, bflag
-#endif
-#ifdef CARTESIAN
-      real(kind=REAL_BYTE), pointer :: dxdy
-      dxdy => fg%my%dh
-#endif
 
       ! set pointers for function calls
       wfld   => fg%wave_field
@@ -479,7 +447,11 @@ contains
       lflag  =  fg%my%linear_flag
       niz    =  fg%my%nx
       njz    =  fg%my%ny
+#ifndef CARTESIAN
       th0    =  fg%my%th0
+#else
+      th0    =  fg%my%dh
+#endif
       dth    =  fg%my%dth
       wod    => fg%wod_flags
       ffld   => fg%bcf_field
@@ -493,206 +465,54 @@ contains
       else
          joff = fg%my%iy - 2 ! sub. edge.
       end if
+#else
+      rank  = 0
+      bflag = 0
+      joff  = 0
 #endif
 
       if(mode == VEL) then
          if(lflag == 1) then
             TIMER_START('- fxy_rwg')
-#ifndef MPI
             if((with_disp == 0) .or. (with_disp == 2 .and. ig == 1)) then
 #ifndef CARTESIAN
 ! === Coriolis force is supported on linear calc. ==============================
                if(crls == 0) then
 ! ==============================================================================
-#ifndef NORMALMODE
-               call fxy_rwg(wfld,dfld,dt,th0,dth,niz,njz)
-#else
-               call fxy_rwg(wfld,dfld,dt,th0,dth,niz,njz,istep)
 #endif
-! === Coriolis force is supported on linear calc. ==============================
-               else
-                  call fxy_rwg_Coriolis(wfld,dfld,crls,dt,th0,dth,niz,njz,ig)
-               end if
-! ==============================================================================
-#else
-               call fxy_rwg(wfld,dfld,dt,dxdy,niz,njz)
-#endif
-            else
-#ifndef CONV_CHECK
-#ifndef CARTESIAN
-! === Coriolis force is supported on linear calc. ==============================
-               if(crls == 0) then
-! ==============================================================================
-#ifndef NORMALMODE
-               call fxy_rwg_disp(wfld,dfld,dt,th0,dth,niz,njz,ig,fg,cg)
-#else
-               call fxy_rwg_disp(wfld,dfld,dt,th0,dth,niz,njz,ig,fg,cg,istep)
-#endif
-! === Coriolis force is supported on linear calc. ==============================
-               else
-                  call fxy_rwg_Coriolis_disp(wfld,dfld,crls,dt,th0,dth,niz,njz,ig,fg,cg)
-               end if
-! ==============================================================================
-#else
-               call fxy_rwg_disp(wfld,dfld,dt,dxdy,niz,njz,ig,fg,cg)
-#endif
-#else
-#ifndef CARTESIAN
-! === Coriolis force is supported on linear calc. ==============================
-               if(crls == 0) then
-! ==============================================================================
-#ifndef NORMALMODE
-               call fxy_rwg_disp(wfld,dfld,dt,th0,dth,niz,njz,ig,fg,cg,conv_step)
-#else
-               call fxy_rwg_disp(wfld,dfld,dt,th0,dth,niz,njz,ig,fg,cg,conv_step,istep)
-#endif
-! === Coriolis force is supported on linear calc. ==============================
-               else
-                  call fxy_rwg_Coriolis_disp(wfld,dfld,crls,dt,th0,dth,niz,njz,ig,fg,cg,conv_step)
-               end if
-! ==============================================================================
-#else
-               call fxy_rwg_disp(wfld,dfld,dt,dxdy,niz,njz,ig,fg,cg,conv_step)
-#endif
-#endif
-            end if
-#else
-            if((with_disp == 0) .or. (with_disp == 2 .and. ig == 1)) then
-#ifndef CARTESIAN
-! === Coriolis force is supported on linear calc. ==============================
-               if(crls == 0) then
-! ==============================================================================
-#ifndef NORMALMODE
-               call fxy_rwg(wfld,dfld,dt,th0,dth,joff,niz,njz)
-#else
                call fxy_rwg(wfld,dfld,dt,th0,dth,joff,niz,njz,istep,fg)
-#endif
+#ifndef CARTESIAN
 ! === Coriolis force is supported on linear calc. ==============================
                else
                   call fxy_rwg_Coriolis(wfld,dfld,crls,dt,th0,dth,joff,niz,njz,ig,bflag)
                end if
 ! ==============================================================================
-#else
-               call fxy_rwg(wfld,dfld,dt,dxdy,niz,njz)
 #endif
             else
-#ifndef CONV_CHECK
 #ifndef CARTESIAN
 ! === Coriolis force is supported on linear calc. ==============================
                if(crls == 0) then
 ! ==============================================================================
-#ifndef NORMALMODE
-               call fxy_rwg_disp(wfld,dfld,dt,th0,dth,joff,niz,njz,ig,bflag,fg,cg)
-#else
-               call fxy_rwg_disp(wfld,dfld,dt,th0,dth,joff,niz,njz,ig,bflag,fg,cg,istep)
 #endif
-! === Coriolis force is supported on linear calc. ==============================
-               else
-                  call fxy_rwg_Coriolis_disp(wfld,dfld,crls,dt,th0,dth,joff,niz,njz,ig,bflag,fg,cg)
-               end if
-! ==============================================================================
-#else
-               call fxy_rwg_disp(wfld,dfld,dt,dxdy,niz,njz,ig,bflag,fg,cg)
-#endif
-#else
-#ifndef CARTESIAN
-! === Coriolis force is supported on linear calc. ==============================
-               if(crls == 0) then
-! ==============================================================================
-#ifndef NORMALMODE
-               call fxy_rwg_disp(wfld,dfld,dt,th0,dth,joff,niz,njz,ig,bflag,fg,cg,conv_step)
-#else
                call fxy_rwg_disp(wfld,dfld,dt,th0,dth,joff,niz,njz,ig,bflag,fg,cg,conv_step,istep)
-#endif
+#ifndef CARTESIAN
 ! === Coriolis force is supported on linear calc. ==============================
                else
                   call fxy_rwg_Coriolis_disp(wfld,dfld,crls,dt,th0,dth,joff,niz,njz,ig,bflag,fg,cg,conv_step)
                end if
 ! ==============================================================================
-#else
-               call fxy_rwg_disp(wfld,dfld,dt,dxdy,niz,njz,ig,bflag,fg,cg,conv_step)
-#endif
 #endif
             end if
-#endif
             TIMER_STOP('- fxy_rwg')
          else
             TIMER_START('- fxynl_rwg')
-#ifndef MPI
             if((with_disp == 0) .or. (with_disp == 2 .and. ig == 1)) then
-#ifndef CARTESIAN
-#ifndef NORMALMODE
-               call fxynl_rwg(wfld,dfld,ffld,wod,cf,cfl,crls,dt,th0,dth,niz,njz,ig,smallh_xy)
-#else
-               call fxynl_rwg(wfld,dfld,ffld,wod,cf,cfl,crls,dt,th0,dth,niz,njz,ig,smallh_xy,istep)
-#endif
-#else
-               call fxynl_rwg(wfld,dfld,ffld,wod,cf,cfl,dt,dxdy,niz,njz,ig,smallh_xy)
-#endif
-            else
-#ifndef CONV_CHECK
-#ifndef CARTESIAN
-               call fxynl_rwg_disp(wfld,dfld,ffld,wod,cf,cfl,crls,dt,th0,dth,niz,njz, &
-#ifndef NORMALMODE
-                                   ig,smallh_xy,fg,cg)
-#else
-                                   ig,smallh_xy,fg,cg,istep)
-#endif
-#else
-               call fxynl_rwg_disp(wfld,dfld,ffld,wod,cf,cfl,dt,dxdy,niz,njz, &
-                                   ig,smallh_xy,fg,cg)
-#endif
-#else
-#ifndef CARTESIAN
-               call fxynl_rwg_disp(wfld,dfld,ffld,wod,cf,cfl,crls,dt,th0,dth,niz,njz, &
-#ifndef NORMALMODE
-                                   ig,smallh_xy,fg,cg,conv_step)
-#else
-                                   ig,smallh_xy,fg,cg,conv_step,istep)
-#endif
-#else
-               call fxynl_rwg_disp(wfld,dfld,ffld,wod,cf,cfl,dt,dxdy,niz,njz, &
-                                   ig,smallh_xy,fg,cg,conv_step)
-#endif
-#endif
-            end if
-#else
-            if((with_disp == 0) .or. (with_disp == 2 .and. ig == 1)) then
-#ifndef CARTESIAN
-#ifndef NORMALMODE
-               call fxynl_rwg(wfld,dfld,ffld,wod,cf,cfl,crls,dt,th0,dth,joff,niz,njz,ig,smallh_xy,bflag)
-#else
                call fxynl_rwg(wfld,dfld,ffld,wod,cf,cfl,crls,dt,th0,dth,joff,niz,njz,ig,smallh_xy,bflag,istep,fg)
-#endif
-#else
-               call fxynl_rwg(wfld,dfld,ffld,wod,cf,cfl,dt,dxdy,niz,njz,ig,smallh_xy,bflag)
-#endif
             else
-#ifndef CONV_CHECK
-#ifndef CARTESIAN
                call fxynl_rwg_disp(wfld,dfld,ffld,wod,cf,cfl,crls,dt,th0,dth,joff,niz,njz, &
-#else
-               call fxynl_rwg_disp(wfld,dfld,ffld,wod,cf,cfl,dt,dxdy,niz,njz, &
-#endif
-#ifndef NORMALMODE
-                                   ig,smallh_xy,bflag,fg,cg)
-#else
-                                   ig,smallh_xy,bflag,fg,cg,istep)
-#endif
-#else
-#ifndef CARTESIAN
-               call fxynl_rwg_disp(wfld,dfld,ffld,wod,cf,cfl,crls,dt,th0,dth,joff,niz,njz, &
-#ifndef NORMALMODE
-                                   ig,smallh_xy,bflag,fg,cg,conv_step)
-#else
                                    ig,smallh_xy,bflag,fg,cg,conv_step,istep)
-#endif
-#else
-               call fxynl_rwg_disp(wfld,dfld,ffld,wod,cf,cfl,dt,dxdy,niz,njz, &
-                                   ig,smallh_xy,bflag,fg,cg,conv_step)
-#endif
-#endif
             end if
+#ifdef MPI
 ! === Flood Change =============================================================
             call exchange_edges(HGT,fg)
 ! ==============================================================================
@@ -728,31 +548,11 @@ contains
       else if(mode == HGT) then
          if(lflag == 1) then
             TIMER_START('- hxy_rwg')
-#ifndef CARTESIAN
-#ifndef MPI
-            call hxy_rwg(wfld,dt,th0,dth,niz,njz)
-#else
             call hxy_rwg(wfld,dt,th0,dth,joff,niz,njz)
-#endif
-#else
-            call hxy_rwg(wfld,dt,dxdy,niz,njz)
-#endif
             TIMER_STOP('- hxy_rwg')
          else
             TIMER_START('- hxynl_rwg')
-#ifndef MPI
-#ifndef CARTESIAN
-            call hxynl_rwg(wfld,dfld,wod,dt,th0,dth,niz,njz,smallh_xy)
-#else
-            call hxynl_rwg(wfld,dfld,wod,dt,dxdy,niz,njz,smallh_xy)
-#endif
-#else
-#ifndef CARTESIAN
             call hxynl_rwg(wfld,dfld,wod,dt,th0,dth,joff,niz,njz,smallh_xy,bflag)
-#else
-            call hxynl_rwg(wfld,dfld,wod,dt,dxdy,niz,njz,smallh_xy,bflag)
-#endif
-#endif
             TIMER_STOP('- hxynl_rwg')
          end if
 #ifndef CARTESIAN
@@ -1318,31 +1118,15 @@ contains
 
 #if !defined(MPI) || !defined(ONEFILE)
 #ifndef PIXELIN
-#ifndef NFSUPPORT
-   subroutine wet_or_dry(wfld,dfld,ifz,nlon,nlat,fname,wodfld)
-#else
    subroutine wet_or_dry(wfld,dfld,ifz,nlon,nlat,fname,wodfld,formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-   subroutine wet_or_dry(wfld,dfld,ifz,nlon,nlat,fname,wodfld,nxorg,nyorg)
 #else
    subroutine wet_or_dry(wfld,dfld,ifz,nlon,nlat,fname,wodfld,nxorg,nyorg,formatid)
 #endif
-#endif
 #else
 #ifndef PIXELIN
-#ifndef NFSUPPORT
-   subroutine wet_or_dry(wfld,dfld,ifz,nlon,nlat,fname,wodfld,dg,myrank)
-#else
    subroutine wet_or_dry(wfld,dfld,ifz,nlon,nlat,fname,wodfld,dg,myrank,formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-   subroutine wet_or_dry(wfld,dfld,ifz,nlon,nlat,fname,wodfld,dg,myrank,nxorg,nyorg)
 #else
    subroutine wet_or_dry(wfld,dfld,ifz,nlon,nlat,fname,wodfld,dg,myrank,nxorg,nyorg,formatid)
-#endif
 #endif
 #endif
       type(wave_arrays), target, intent(inout) :: wfld
@@ -1376,9 +1160,7 @@ contains
 #ifdef PIXELIN
       real(kind=REAL_BYTE), allocatable, dimension(:,:) :: wodorg
 #endif
-#ifdef NFSUPPORT
       integer(kind=4), intent(in) :: formatid
-#endif
 
       hz => wfld%hz
       dz => dfld%dz
@@ -1390,7 +1172,7 @@ contains
 #ifndef __NEC__
 !$omp parallel
 #endif
-      if(trim(fname) == 'NO_WETORDRY_FILE_GIVEN') then
+      if(trim(fname(1:11)) == 'NO_WETORDRY') then
 #ifndef __NEC__
 !$omp single
 #endif
@@ -1425,11 +1207,7 @@ contains
 #if !defined(MPI) || !defined(ONEFILE)
          write(6,'(8x,a,a)') 'WETORDRY_FILE_GIVEN:', trim(fname)
 #ifndef PIXELIN
-#ifndef NFSUPPORT
-         call read_gmt_grd(fname, wod, nlon, nlat)
-#else
          call read_gmt_grd(fname, wod, nlon, nlat,formatid)
-#endif
 #else
          allocate(wodorg(0:nxorg-1,0:nyorg-1))
          open(1,file=trim(fname),action='read',status='old',form='formatted')
@@ -1443,11 +1221,7 @@ contains
             allocate(wod_all(dg%my%totalNx,dg%my%totalNy))
             write(6,'(8x,a,a)') 'WETORDRY_FILE_GIVEN:', trim(fname)
 #ifndef PIXELIN
-#ifndef NFSUPPORT
-            call read_gmt_grd(fname, wod_all, dg%my%totalNx,dg%my%totalNy)
-#else
             call read_gmt_grd(fname, wod_all, dg%my%totalNx,dg%my%totalNy,formatid)
-#endif
 #else
             allocate(wodorg(0:nxorg-1,0:nyorg-1))
             open(1,file=trim(fname),action='read',status='old',form='formatted')
@@ -1732,17 +1506,10 @@ contains
       zmin = min
       zmax = max
 #else
-#ifndef MULTI
-      call MPI_Allreduce(min, zmin, 1, REAL_MPI, MPI_MIN, MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(min, zmin, 1, REAL_MPI, MPI_MIN, __MPICOMM__, ierr)
       if(ierr /= 0) write(0,'(a)') 'MPI Error : MPI_Allreduce in minmax_rwg'
-      call MPI_Allreduce(max, zmax, 1, REAL_MPI, MPI_MAX, MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(max, zmax, 1, REAL_MPI, MPI_MAX, __MPICOMM__, ierr)
       if(ierr /= 0) write(0,'(a)') 'MPI Error : MPI_Allreduce in minmax_rwg'
-#else
-      call MPI_Allreduce(min, zmin, 1, REAL_MPI, MPI_MIN, MPI_MEMBER_WORLD, ierr)
-      if(ierr /= 0) write(0,'(a)') 'MPI Error : MPI_Allreduce in minmax_rwg'
-      call MPI_Allreduce(max, zmax, 1, REAL_MPI, MPI_MAX, MPI_MEMBER_WORLD, ierr)
-      if(ierr /= 0) write(0,'(a)') 'MPI Error : MPI_Allreduce in minmax_rwg'
-#endif
 #endif
 
       return
@@ -2129,17 +1896,10 @@ contains
       !*==============*
       !*  allreduce   *
       !*==============*
-#ifndef MULTI
-      call MPI_Allreduce(cbuf0, fbuf0, ldx*4*3, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(cbuf1, fbuf1, ldy*4*3, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(cbuf2, fbuf2, ldy*4*3, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(cbuf3, fbuf3, ldx*4*3, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(cbuf1, fbuf1, ldy*4*3, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(cbuf0, fbuf0, ldx*4*3, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(cbuf2, fbuf2, ldy*4*3, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(cbuf3, fbuf3, ldx*4*3, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(cbuf0, fbuf0, ldx*4*3, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
+      call MPI_Allreduce(cbuf1, fbuf1, ldy*4*3, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
+      call MPI_Allreduce(cbuf2, fbuf2, ldy*4*3, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
+      call MPI_Allreduce(cbuf3, fbuf3, ldx*4*3, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
       !*==============*
       !*  copy2dx     *
       !*==============*
@@ -2285,17 +2045,10 @@ contains
       !*==============*
       !*  allreduce   *
       !*==============*
-#ifndef MULTI
-      call MPI_Allreduce(cbuf0, fbuf0, ldx*4*3, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(cbuf1, fbuf1, ldy*4*3, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(cbuf2, fbuf2, ldy*4*3, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(cbuf3, fbuf3, ldx*4*3, REAL_MPI, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(cbuf0, fbuf0, ldx*4*3, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(cbuf1, fbuf1, ldy*4*3, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(cbuf2, fbuf2, ldy*4*3, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-      call MPI_Allreduce(cbuf3, fbuf3, ldx*4*3, REAL_MPI, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(cbuf0, fbuf0, ldx*4*3, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
+      call MPI_Allreduce(cbuf1, fbuf1, ldy*4*3, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
+      call MPI_Allreduce(cbuf2, fbuf2, ldy*4*3, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
+      call MPI_Allreduce(cbuf3, fbuf3, ldx*4*3, REAL_MPI, MPI_SUM, __MPICOMM__, ierr)
       !*==============*
       !*  buf2fine    *
       !*==============*
@@ -2476,21 +2229,21 @@ contains
       integer(kind=4) :: ig, jg
 #endif
       real(kind=REAL_BYTE) :: tmp
-      integer(kind=4) :: i, j
+      integer(kind=4) :: i, j, ii, jj
 
 !$omp parallel
 #ifndef MPI
-!$omp do private(i, tmp)
+!$omp do private(jj, ii, i, tmp)
       do j = 1, nlat
+         jj = min(j, nlat+1-j)
          do i = 1, nlon
-            if(i < nxa) then
-               tmp = exp(-((apara*(nxa-i       ))**2))
-            else if(i > (nlon-nxa+1)) then
-               tmp = exp(-((apara*(i-nlon+nxa-1))**2))
-            else if(j < nya) then
-               tmp = exp(-((apara*(nya-j       ))**2))
-            else if(j > (nlat-nya+1)) then
-               tmp = exp(-((apara*(j-nlat+nya-1))**2))
+            ii = min(i, nlon+1-i)
+            if(ii <= nxa .and. jj > nya) then
+               tmp = exp(-((apara*(nxa-ii))**2))
+            else if(ii > nxa .and. jj <= nya) then
+               tmp = exp(-((apara*(nya-jj))**2))
+            else if(ii <= nxa .and. jj <= nya) then
+               tmp = exp(-((apara*(nxa-ii))**2+(apara*(nya-jj))**2))
             else
                tmp = 1.0d0
             end if
@@ -2498,19 +2251,19 @@ contains
          end do
       end do
 #else
-!$omp do private(i, ig, jg, tmp)
+!$omp do private(jj, ii, i, ig, jg, tmp)
       do j = 1, nlat
          jg = ky+j-1
+         jj = min(jg, totalNy+1-jg)
          do i = 1, nlon
             ig = kx+i-1
-            if(ig < nxa) then
-               tmp = exp(-((apara*(nxa-ig          ))**2))
-            else if(ig > (totalNx-nxa+1)) then
-               tmp = exp(-((apara*(ig-totalNx+nxa-1))**2))
-            else if(jg < nya) then
-               tmp = exp(-((apara*(nya-jg          ))**2))
-            else if(jg > (totalNy-nya+1)) then
-               tmp = exp(-((apara*(jg-totalNy+nya-1))**2))
+            ii = min(ig, totalNx+1-ig)
+            if(ii <= nxa .and. jj > nya) then
+               tmp = exp(-((apara*(nxa-ii))**2))
+            else if(ii > nxa .and. jj <= nya) then
+               tmp = exp(-((apara*(nya-jj))**2))
+            else if(ii <= nxa .and. jj <= nya) then
+               tmp = exp(-((apara*(nxa-ii))**2+(apara*(nya-jj))**2))
             else
                tmp = 1.0d0
             end if

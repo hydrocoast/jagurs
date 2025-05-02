@@ -106,6 +106,7 @@ ONEFILE=ON
 #DUMP1D=ON
 #OLD_SCHEME=ON
 #NORMALMODE=ON
+#NM_DEF=ON
 
 ################################################################################
 ################################################################################
@@ -202,6 +203,9 @@ endif
 # Multi-members
 ifeq ($(MULTI),ON)
    FFLAGS+=-DMULTI
+   FFLAGS+=-D__MPICOMM__=MPI_MEMBER_WORLD
+else
+   FFLAGS+=-D__MPICOMM__=MPI_COMM_WORLD
 endif
 
 # Single tgs output
@@ -253,12 +257,14 @@ endif
 ifeq ($(PIXELOUT),ON)
    FFLAGS+=-DPIXELOUT
 endif
-FFLAGS+=-DNFSUPPORT
 ifeq ($(OLD_SCHEME),ON)
    FFLAGS+=-DOLD_SCHEME
 endif
 ifeq ($(NORMALMODE),ON)
    FFLAGS+=-DNORMALMODE
+endif
+ifeq ($(NM_DEF),ON)
+   FFLAGS+=-DNM_DEF
 endif
 
 ################################################################################

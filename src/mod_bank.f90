@@ -74,7 +74,7 @@ contains
 #endif
       real(kind=REAL_BYTE) :: bh
 
-      if(dg%bank_file /= 'NO_BANK_FILE_GIVEN') then
+      if(dg%bank_file(1:7) /= 'NO_BANK') then
 
          write(6,'(a,a,a)') '[bank] Open bank file ', trim(dg%bank_file), '!'
          open(1,file=trim(dg%bank_file),action='read',status='old',form='formatted')
@@ -307,7 +307,7 @@ contains
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: btx, bty, dxbx, dyby
       integer(kind=4) :: i, j
 
-      if(dg%bank_file /= 'NO_BANK_FILE_GIVEN') then
+      if(dg%bank_file(1:7) /= 'NO_BANK') then
          nx   => dg%my%nx
          ny   => dg%my%ny
 
@@ -351,7 +351,7 @@ contains
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: dx_old, dx, dy_old, dy
       integer(kind=4) :: i, j
 
-      if(dg%bank_file /= 'NO_BANK_FILE_GIVEN') then
+      if(dg%bank_file(1:7) /= 'NO_BANK') then
          nx     => dg%my%nx
          ny     => dg%my%ny
 
@@ -383,7 +383,7 @@ contains
       real(kind=REAL_BYTE), pointer, dimension(:,:) :: btx, bty
       integer(kind=4) :: i, j
 
-      if(dg%bank_file /= 'NO_BANK_FILE_GIVEN') then
+      if(dg%bank_file(1:7) /= 'NO_BANK') then
          nx     => dg%my%nx
          ny     => dg%my%ny
 
@@ -414,11 +414,6 @@ contains
 
       return
    end subroutine update_btxbty
-#else
-#ifdef __SX__
-   subroutine bank_dummy()
-   end subroutine bank_dummy
-#endif
 #endif
 
 end module mod_bank

@@ -87,7 +87,8 @@ program JAGURS
 #endif
 ! ==============================================================================
 ! === Initial displacement of child domains is given by interpolation. =========
-   use mod_interpolation, only : interp2fine_init_disp
+   use mod_interpolation, only : interp2fine_init_disp, interp2fine_init_hz, &
+                                 interp2fine_init_fx, interp2fine_init_fy
 #ifdef MPI
    use mod_interpolation, only : interpolation_mpi_initialize
 #endif
@@ -103,7 +104,11 @@ program JAGURS
    use mod_dump1d, only : dump1d_initialize, dump1d, dump1d_finalize
 #endif
 #ifdef NORMALMODE
+#ifndef NM_DEF
    use mod_normalmode, only : normalmode_read_namelist, make_nm_ind
+#else
+   use mod_normalmode, only : normalmode_read_namelist, normalmode_set_params
+#endif
 #endif
    implicit none
 
@@ -124,6 +129,7 @@ program JAGURS
 ! ==============================================================================
    integer(kind=4), pointer, dimension(:,:) :: wod_flags
    character(len=256), pointer :: base, file_name_bathymetry, displacement_file_name, wod_file_name, bcf_file_name
+   character(len=256), pointer :: file_name_init_hz, file_name_init_fx, file_name_init_fy
 
    integer(kind=4) :: niz, njz
    real(kind=REAL_BYTE) :: dxdy, mlon0, mlat0, th0, dth
@@ -149,22 +155,10 @@ program JAGURS
 
    integer(kind=4) :: i, j
    integer(kind=4) :: error
-#ifdef __SX__
-   character(len=1024) :: buf
-   integer(kind=4) :: ista
-#ifndef CARTESIAN
-   real(kind=REAL_BYTE) :: colat, colon
-#endif
-   real(kind=REAL_BYTE) :: mindh
-   integer(kind=4) :: ilon, ilat
-#ifdef MPI
-   integer(kind=4) :: kg, ksta
-#endif
-#endif
+   integer(kind=4) :: myrank = 0
 #ifdef MPI
    ! MPI
    integer(kind=4) :: nprocs = 0
-   integer(kind=4) :: myrank = 0
    integer(kind=4) :: ierr = 0
 !  integer(kind=4) :: npx = 0 ! in mod_params
 !  integer(kind=4) :: npy = 0 ! in mod_params
@@ -226,9 +220,7 @@ program JAGURS
 #ifdef DIROUT
    character(len=128) :: dirname
 #endif
-#ifdef CONV_CHECK
    integer(kind=4) :: conv_step
-#endif
 ! === Support truncation =======================================================
    logical :: trunc_flag = .false.
 ! ==============================================================================
@@ -248,13 +240,6 @@ program JAGURS
 ! === For MRI ==================================================================
    character(len=256) :: gaussian_file_name = 'gaussian'
 ! ==============================================================================
-#ifdef __SX__
-#ifdef MULTI
-! === Split Dir ================================================================
-   character(len=128) :: tmp_filename
-! ==============================================================================
-#endif
-#endif
 ! === SINWAVE ==================================================================
    character(len=256) :: sinwave_file_name = 'sinwave'
 ! ==============================================================================
@@ -271,12 +256,8 @@ program JAGURS
    real(kind=8) :: h0
 #endif
 ! ==============================================================================
-#ifdef PIXELIN
    integer(kind=4) :: nxorg, nyorg
-#endif
-#ifdef NFSUPPORT
    integer(kind=4) :: formatid
-#endif
    TIMER_START('All')
 
 #ifdef MULTI
@@ -325,13 +306,8 @@ program JAGURS
    if(max_time_i /= 0) call start_trunc()
 ! ==============================================================================
 #ifdef MPI
-#ifndef MULTI
-   call MPI_Comm_size(MPI_COMM_WORLD, nprocs, ierr)
-   call MPI_Comm_rank(MPI_COMM_WORLD, myrank, ierr)
-#else
-   call MPI_Comm_size(MPI_MEMBER_WORLD, nprocs, ierr)
-   call MPI_Comm_rank(MPI_MEMBER_WORLD, myrank, ierr)
-#endif
+   call MPI_Comm_size(__MPICOMM__, nprocs, ierr)
+   call MPI_Comm_rank(__MPICOMM__, myrank, ierr)
 #endif
 #if defined(MPI) && defined(ONEFILE)
    TIMER_START('onefile_initialize')
@@ -354,70 +330,7 @@ program JAGURS
    radmin = acos(-1.0d0)/(180.0d0)
 
    TIMER_START('read_grid_info')
-#ifndef __SX__
    call read_grid_info(gridfile,dgrid,ngrid)
-#else
-! === Split Dir ================================================================
-!  open(1,file=trim(gridfile),action='read',status='old',form='formatted',err=300)
-#ifndef MULTI
-   open(1,file=trim(gridfile),action='read',status='old',form='formatted',err=300)
-#else
-   tmp_filename = trim(input_dirname) // trim(gridfile)
-   open(1,file=trim(tmp_filename),action='read',status='old',form='formatted',err=300)
-#endif
-! ==============================================================================
-
-   ngrid = 0
-   do while(.true.)
-      read(1,'(a)',end=301) buf
-      ngrid = ngrid + 1
-   end do
-
-301 allocate(dgrid(ngrid))
-   rewind(1)
-
-   do ig = 1, ngrid
-      read(1,'(a)') buf
-      read(buf,*,end=304) dgrid(ig)%my%base_name, dgrid(ig)%parent%base_name, dgrid(ig)%my%linear_flag, dgrid(ig)%my%bath_file, &
-                          dgrid(ig)%my%disp_file
-      read(buf,*,end=305) dgrid(ig)%my%base_name, dgrid(ig)%parent%base_name, dgrid(ig)%my%linear_flag, dgrid(ig)%my%bath_file, &
-                          dgrid(ig)%my%disp_file, dgrid(ig)%wod_file
-      read(buf,*,end=306) dgrid(ig)%my%base_name, dgrid(ig)%parent%base_name, dgrid(ig)%my%linear_flag, dgrid(ig)%my%bath_file, &
-                          dgrid(ig)%my%disp_file, dgrid(ig)%wod_file, dgrid(ig)%bcf_file
-#ifdef BANKFILE
-      read(buf,*,end=307) dgrid(ig)%my%base_name, dgrid(ig)%parent%base_name, dgrid(ig)%my%linear_flag, dgrid(ig)%my%bath_file, &
-                          dgrid(ig)%my%disp_file, dgrid(ig)%wod_file, dgrid(ig)%bcf_file, dgrid(ig)%bank_file
-#endif
-      cycle
-304   dgrid(ig)%my%disp_file = 'NO_DISPLACEMENT_FILE_GIVEN'
-305   dgrid(ig)%wod_file     = 'NO_WETORDRY_FILE_GIVEN'
-306   dgrid(ig)%bcf_file     = 'NO_FRICTION_FILE_GIVEN'
-#ifdef BANKFILE
-307   dgrid(ig)%bank_file    = 'NO_BANK_FILE_GIVEN'
-#endif
-   end do
-#ifdef MULTI
-! === Split Dir ================================================================
-   do ig = 1, ngrid
-      dgrid(ig)%my%bath_file = trim(input_dirname) // trim(dgrid(ig)%my%bath_file)
-      if(dgrid(ig)%my%disp_file /= 'NO_DISPLACEMENT_FILE_GIVEN') then
-         dgrid(ig)%my%disp_file = trim(input_dirname) // trim(dgrid(ig)%my%disp_file)
-      end if
-      if(dgrid(ig)%wod_file /= 'NO_WETORDRY_FILE_GIVEN') then
-         dgrid(ig)%wod_file = trim(input_dirname) // trim(dgrid(ig)%wod_file)
-      end if
-      if(dgrid(ig)%bcf_file /= 'NO_FRICTION_FILE_GIVEN') then
-         dgrid(ig)%bcf_file = trim(input_dirname) // trim(dgrid(ig)%bcf_file)
-      end if
-#ifdef BANKFILE
-      if(dgrid(ig)%bank_file /= 'NO_BANK_FILE_GIVEN') then
-         dgrid(ig)%bank_file = trim(input_dirname) // trim(dgrid(ig)%bank_file)
-      end if
-#endif
-   end do
-! ==============================================================================
-#endif
-#endif
    TIMER_STOP('read_grid_info')
 #ifdef MPI
 #ifdef USE_ALLTOALLV
@@ -530,7 +443,7 @@ program JAGURS
 #ifdef MPI
 ! === Elastic loading with interpolation =======================================
 !  if(init_disp_interpolation == 1) then
-   if((init_disp_interpolation == 1) .or. (elastic_loading_interpolation == 1)) then
+   if((init_disp_interpolation == 1) .or. (elastic_loading_interpolation == 1) .or. (init_val_interpolation == 1)) then
 ! ==============================================================================
       TIMER_START('interpolation_mpi_initialize')
       call interpolation_mpi_initialize(nprocs, myrank, npx, npy, rankx, ranky)
@@ -566,7 +479,7 @@ program JAGURS
          irupt   => dgrid(ig)%irupt
 ! === Displacement =============================================================
          if((ig /= 1) .and. (init_disp_interpolation == 1)) then
-            if(trim(dgrid(ig)%my%disp_file) == 'NO_DISPLACEMENT_FILE_GIVEN') then
+            if(trim(dgrid(ig)%my%disp_file(1:15)) == 'NO_DISPLACEMENT') then
                dgrid(ig)%nrupt = dgrid(1)%nrupt
                dgrid(ig)%irupt = dgrid(1)%irupt
                allocate(dgrid(ig)%ruptgrd(1))
@@ -592,7 +505,7 @@ program JAGURS
          allocate(dgrid(ig)%ruptgrd(nrupt))
          ruptgrd => dgrid(ig)%ruptgrd
          ! Fill in the rupture file names
-         if(trim(dgrid(ig)%my%disp_file) == 'NO_DISPLACEMENT_FILE_GIVEN') then
+         if(trim(dgrid(ig)%my%disp_file(1:15)) == 'NO_DISPLACEMENT') then
             do irupt = 1, nrupt
                ruptgrd(irupt) = 'NO_DISPLACEMENT_FILE_GIVEN'
                write(6,'(a,i0,a,a)') 'grid: ', ig, ' rupture file: ', trim(ruptgrd(irupt))
@@ -655,50 +568,21 @@ program JAGURS
       !*** read in bathymetry GMT netcdf grid file ***
       !*** first read the header values ***
       TIMER_START('read_bathymetry_gmt_grdhdr')
-#ifndef PIXELIN
-#ifndef NFSUPPORT
-      call read_bathymetry_gmt_grdhdr(dgrid(ig)%my%bath_file,niz,njz,dxdy,mlon0,mlat0)
-#else
-      call read_bathymetry_gmt_grdhdr(dgrid(ig)%my%bath_file,niz,njz,dxdy,mlon0,mlat0,formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-      call read_bathymetry_gmt_grdhdr(dgrid(ig)%my%bath_file,niz,njz,dxdy,mlon0,mlat0,nxorg,nyorg)
-#else
       call read_bathymetry_gmt_grdhdr(dgrid(ig)%my%bath_file,niz,njz,dxdy,mlon0,mlat0,nxorg,nyorg,formatid)
-#endif
-#endif
       TIMER_STOP('read_bathymetry_gmt_grdhdr')
 #if defined(MPI) && defined(ONEFILE)
       end if
 
-#ifndef MULTI
-      call MPI_Bcast(niz,   1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(njz,   1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(dxdy,  1, REAL_MPI,    0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(mlon0, 1, REAL_MPI,    0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(mlat0, 1, REAL_MPI,    0, MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(niz,   1, MPI_INTEGER, 0, __MPICOMM__, ierr)
+      call MPI_Bcast(njz,   1, MPI_INTEGER, 0, __MPICOMM__, ierr)
+      call MPI_Bcast(dxdy,  1, REAL_MPI,    0, __MPICOMM__, ierr)
+      call MPI_Bcast(mlon0, 1, REAL_MPI,    0, __MPICOMM__, ierr)
+      call MPI_Bcast(mlat0, 1, REAL_MPI,    0, __MPICOMM__, ierr)
 #ifdef PIXELIN
-      call MPI_Bcast(nxorg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(nyorg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(nxorg, 1, MPI_INTEGER, 0, __MPICOMM__, ierr)
+      call MPI_Bcast(nyorg, 1, MPI_INTEGER, 0, __MPICOMM__, ierr)
 #endif
-#ifdef NFSUPPORT
-      call MPI_Bcast(formatid, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-#endif
-#else
-      call MPI_Bcast(niz,   1, MPI_INTEGER, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(njz,   1, MPI_INTEGER, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(dxdy,  1, REAL_MPI,    0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(mlon0, 1, REAL_MPI,    0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(mlat0, 1, REAL_MPI,    0, MPI_MEMBER_WORLD, ierr)
-#ifdef PIXELIN
-      call MPI_Bcast(nxorg, 1, MPI_INTEGER, 0, MPI_MEMBER_WORLD, ierr)
-      call MPI_Bcast(nyorg, 1, MPI_INTEGER, 0, MPI_MEMBER_WORLD, ierr)
-#endif
-#ifdef NFSUPPORT
-      call MPI_Bcast(formatid, 1, MPI_INTEGER, 0, MPI_MEMBER_WORLD, ierr)
-#endif
-#endif
+      call MPI_Bcast(formatid, 1, MPI_INTEGER, 0, __MPICOMM__, ierr)
 
       totalNx = niz
       nbx = totalNx / npx + min(1, mod(totalNx, npx))
@@ -750,9 +634,7 @@ program JAGURS
       dgrid(ig)%my%nxorg = nxorg
       dgrid(ig)%my%nyorg = nyorg
 #endif
-#ifdef NFSUPPORT
       dgrid(ig)%my%formatid = formatid
-#endif
  
 #ifdef MPI
       ! MPI
@@ -771,34 +653,18 @@ program JAGURS
       dgrid(ig)%my%rx = rankx
       dgrid(ig)%my%ry = ranky
 
-#ifndef MULTI
-      call MPI_Allreduce(niz, totalNx, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(niz, totalNx, 1, MPI_INTEGER, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(niz, totalNx, 1, MPI_INTEGER, MPI_SUM, __MPICOMM__, ierr)
       totalNx = totalNx/npy - (npx-1)*2
       dgrid(ig)%my%totalNx = totalNx
 
-#ifndef MULTI
-      call MPI_Allreduce(njz, totalNy, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(njz, totalNy, 1, MPI_INTEGER, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(njz, totalNy, 1, MPI_INTEGER, MPI_SUM, __MPICOMM__, ierr)
       totalNy = totalNy/npx - (npy-1)*2
       dgrid(ig)%my%totalNy = totalNy
 
-#ifndef MULTI
-      call MPI_Allreduce(mlon0, glon0, 1, REAL_MPI, MPI_MIN, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(mlon0, glon0, 1, REAL_MPI, MPI_MIN, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(mlon0, glon0, 1, REAL_MPI, MPI_MIN, __MPICOMM__, ierr)
       dgrid(ig)%my%glon0 = glon0
 
-#ifndef MULTI
-      call MPI_Allreduce(mlat0, glat0, 1, REAL_MPI, MPI_MIN, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Allreduce(mlat0, glat0, 1, REAL_MPI, MPI_MIN, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Allreduce(mlat0, glat0, 1, REAL_MPI, MPI_MIN, __MPICOMM__, ierr)
       dgrid(ig)%my%glat0 = glat0
 
       nbx    = totalNx / npx ! x-size of local region without edges
@@ -849,11 +715,7 @@ program JAGURS
       TIMER_STOP('onefile_setparams')
 #endif
 ! === To avoid numerical error =================================================
-#ifndef MULTI
-      call MPI_Bcast(dgrid(ig)%my%dh, 1, REAL_MPI, 0, MPI_COMM_WORLD, ierr)
-#else
-      call MPI_Bcast(dgrid(ig)%my%dh, 1, REAL_MPI, 0, MPI_MEMBER_WORLD, ierr)
-#endif
+      call MPI_Bcast(dgrid(ig)%my%dh, 1, REAL_MPI, 0, __MPICOMM__, ierr)
 #ifndef CARTESIAN
       dgrid(ig)%my%mlon0 = dgrid(ig)%my%glon0 + (kx - 1)*dgrid(ig)%my%dh*60.0d0
       dgrid(ig)%my%mlat0 = dgrid(ig)%my%glat0 + (ky - 1)*dgrid(ig)%my%dh*60.0d0
@@ -867,7 +729,7 @@ program JAGURS
       allocate(dgrid(ig)%wave_field%fx_old(-2:niz+1,-1:njz+1))
       allocate(dgrid(ig)%wave_field%fy_old(-1:niz+1,-2:njz+1))
 #ifdef BANKFILE
-      if(dgrid(ig)%bank_file /= 'NO_BANK_FILE_GIVEN') then
+      if(dgrid(ig)%bank_file(1:7) /= 'NO_BANK') then
          allocate(dgrid(ig)%wave_field%btx(-2:niz+1,-1:njz+1))
          allocate(dgrid(ig)%wave_field%brokenx(-2:niz+1,-1:njz+1))
          allocate(dgrid(ig)%wave_field%bty(-1:niz+1,-2:njz+1))
@@ -889,7 +751,7 @@ program JAGURS
       allocate(dgrid(ig)%wave_field%fx    (ist:ien,jst:jen))
       allocate(dgrid(ig)%wave_field%fx_old(ist:ien,jst:jen))
 #ifdef BANKFILE
-      if(dgrid(ig)%bank_file /= 'NO_BANK_FILE_GIVEN') then
+      if(dgrid(ig)%bank_file(1:7) /= 'NO_BANK') then
          allocate(dgrid(ig)%wave_field%btx(ist:ien,jst:jen))
          allocate(dgrid(ig)%wave_field%brokenx(ist:ien,jst:jen))
       end if
@@ -905,7 +767,7 @@ program JAGURS
       allocate(dgrid(ig)%wave_field%fy    (ist:ien,jst:jen))
       allocate(dgrid(ig)%wave_field%fy_old(ist:ien,jst:jen))
 #ifdef BANKFILE
-      if(dgrid(ig)%bank_file /= 'NO_BANK_FILE_GIVEN') then
+      if(dgrid(ig)%bank_file(1:7) /= 'NO_BANK') then
          allocate(dgrid(ig)%wave_field%bty(ist:ien,jst:jen))
          allocate(dgrid(ig)%wave_field%brokeny(ist:ien,jst:jen))
       end if
@@ -939,7 +801,7 @@ program JAGURS
       allocate(dgrid(ig)%wave_field%hz_old(-1:niz+2,-1:njz+2))
       allocate(dgrid(ig)%depth_field%dz   (-1:niz+2,-1:njz+2))
 #ifdef BANKFILE
-      if(dgrid(ig)%bank_file /= 'NO_BANK_FILE_GIVEN') then
+      if(dgrid(ig)%bank_file(1:7) /= 'NO_BANK') then
          allocate(dgrid(ig)%wave_field%ir   (-1:niz+2,-1:njz+2))
          allocate(dgrid(ig)%depth_field%dxbx(-1:niz+2,-1:njz+2))
          allocate(dgrid(ig)%depth_field%dyby(-1:niz+2,-1:njz+2))
@@ -972,7 +834,7 @@ program JAGURS
       allocate(dgrid(ig)%wave_field%hz_old(ist:ien,jst:jen))
       allocate(dgrid(ig)%depth_field%dz   (ist:ien,jst:jen))
 #ifdef BANKFILE
-      if(dgrid(ig)%bank_file /= 'NO_BANK_FILE_GIVEN') then
+      if(dgrid(ig)%bank_file(1:7) /= 'NO_BANK') then
          allocate(dgrid(ig)%wave_field%ir   (ist:ien,jst:jen))
          allocate(dgrid(ig)%depth_field%dxbx(ist:ien,jst:jen))
          allocate(dgrid(ig)%depth_field%dyby(ist:ien,jst:jen))
@@ -1009,7 +871,7 @@ program JAGURS
       allocate(dgrid(ig)%depth_field%dx(niz,njz))
       allocate(dgrid(ig)%depth_field%dy(niz,njz))
 #ifdef BANKFILE
-      if(dgrid(ig)%bank_file /= 'NO_BANK_FILE_GIVEN') then
+      if(dgrid(ig)%bank_file(1:7) /= 'NO_BANK') then
          allocate(dgrid(ig)%depth_field%dx_old(niz,njz))
          allocate(dgrid(ig)%depth_field%dy_old(niz,njz))
       end if
@@ -1065,7 +927,7 @@ program JAGURS
       dgrid(ig)%depth_field%dz = 0.0d0 ! depth field
       dgrid(ig)%bcf_field = 0.0d0 ! friction field
 #ifdef BANKFILE
-      if(dgrid(ig)%bank_file /= 'NO_BANK_FILE_GIVEN') then
+      if(dgrid(ig)%bank_file(1:7) /= 'NO_BANK') then
          dgrid(ig)%depth_field%dx_old = 0.0d0
          dgrid(ig)%depth_field%dy_old = 0.0d0
 
@@ -1144,35 +1006,7 @@ program JAGURS
 
       !*** read in the bathymetry ***
       TIMER_START('read_bathymetry_gmt_grd')
-#if !defined(MPI) || !defined(ONEFILE)
-#ifndef PIXELIN
-#ifndef NFSUPPORT
-      call read_bathymetry_gmt_grd(file_name_bathymetry, depth_field, niz, njz, linear_flag)
-#else
-      call read_bathymetry_gmt_grd(file_name_bathymetry, depth_field, niz, njz, linear_flag, dgrid(ig)%my%formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-      call read_bathymetry_gmt_grd(file_name_bathymetry, depth_field, niz, njz, linear_flag, nxorg, nyorg)
-#else
-      call read_bathymetry_gmt_grd(file_name_bathymetry, depth_field, niz, njz, linear_flag, nxorg, nyorg, dgrid(ig)%my%formatid)
-#endif
-#endif
-#else
-#ifndef PIXELIN
-#ifndef NFSUPPORT
-      call read_bathymetry_gmt_grd(file_name_bathymetry, depth_field, niz, njz, linear_flag, dgrid(ig), myrank)
-#else
-      call read_bathymetry_gmt_grd(file_name_bathymetry, depth_field, niz, njz, linear_flag, dgrid(ig), myrank, dgrid(ig)%my%formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-      call read_bathymetry_gmt_grd(file_name_bathymetry, depth_field, niz, njz, linear_flag, dgrid(ig), myrank, nxorg, nyorg)
-#else
       call read_bathymetry_gmt_grd(file_name_bathymetry, depth_field, niz, njz, linear_flag, dgrid(ig), myrank, nxorg, nyorg, dgrid(ig)%my%formatid)
-#endif
-#endif
-#endif
       TIMER_STOP('read_bathymetry_gmt_grd')
 #ifdef BANKFILE
       TIMER_START('read_bank_file')
@@ -1182,35 +1016,7 @@ program JAGURS
 
       !*** read in the bottom friction coefficient ***
       TIMER_START('read_friction_gmt_grd')
-#if !defined(MPI) || !defined(ONEFILE)
-#ifndef PIXELIN
-#ifndef NFSUPPORT
-      call read_friction_gmt_grd(bcf_file_name, bcf_field, niz, njz)
-#else
-      call read_friction_gmt_grd(bcf_file_name, bcf_field, niz, njz, dgrid(ig)%my%formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-      call read_friction_gmt_grd(bcf_file_name, bcf_field, niz, njz, nxorg, nyorg)
-#else
-      call read_friction_gmt_grd(bcf_file_name, bcf_field, niz, njz, nxorg, nyorg, dgrid(ig)%my%formatid)
-#endif
-#endif
-#else
-#ifndef PIXELIN
-#ifndef NFSUPPORT
-      call read_friction_gmt_grd(bcf_file_name, bcf_field, niz, njz, dgrid(ig), myrank)
-#else
-      call read_friction_gmt_grd(bcf_file_name, bcf_field, niz, njz, dgrid(ig), myrank, dgrid(ig)%my%formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-      call read_friction_gmt_grd(bcf_file_name, bcf_field, niz, njz, dgrid(ig), myrank, nxorg, nyorg)
-#else
       call read_friction_gmt_grd(bcf_file_name, bcf_field, niz, njz, dgrid(ig), myrank, nxorg, nyorg, dgrid(ig)%my%formatid)
-#endif
-#endif
-#endif
       TIMER_STOP('read_friction_gmt_grd')
 
       !*** read seismic displacement ***
@@ -1244,31 +1050,15 @@ program JAGURS
       TIMER_START('wet_or_dry')
 #if !defined(MPI) || !defined(ONEFILE)
 #ifndef PIXELIN
-#ifndef NFSUPPORT
-      call wet_or_dry(wave_field,depth_field,wod_flags,niz,njz,wod_file_name,wod_field)
-#else
       call wet_or_dry(wave_field,depth_field,wod_flags,niz,njz,wod_file_name,wod_field,dgrid(ig)%my%formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-      call wet_or_dry(wave_field,depth_field,wod_flags,niz,njz,wod_file_name,wod_field,nxorg,nyorg)
 #else
       call wet_or_dry(wave_field,depth_field,wod_flags,niz,njz,wod_file_name,wod_field,nxorg,nyorg,dgrid(ig)%my%formatid)
 #endif
-#endif
 #else
 #ifndef PIXELIN
-#ifndef NFSUPPORT
-      call wet_or_dry(wave_field,depth_field,wod_flags,niz,njz,wod_file_name,wod_field,dgrid(ig),myrank)
-#else
       call wet_or_dry(wave_field,depth_field,wod_flags,niz,njz,wod_file_name,wod_field,dgrid(ig),myrank,dgrid(ig)%my%formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-      call wet_or_dry(wave_field,depth_field,wod_flags,niz,njz,wod_file_name,wod_field,dgrid(ig),myrank,nxorg,nyorg)
 #else
       call wet_or_dry(wave_field,depth_field,wod_flags,niz,njz,wod_file_name,wod_field,dgrid(ig),myrank,nxorg,nyorg,dgrid(ig)%my%formatid)
-#endif
 #endif
 #endif
       TIMER_STOP('wet_or_dry')
@@ -1436,6 +1226,7 @@ program JAGURS
          (mlat0 <= dgrid(ig)%my%glat0/60.0d0 - 0.0001d0) .or. (mlat0 >= dgrid(ig)%my%glat0/60.0d0 + 0.0001d0)) then
 #endif
          write(0,'(a,i0,a)') '****** grid= ', ig, ' not properly registered to coarse grid, exiting...'
+#ifndef NOCHECK
 #ifndef MPI
          stop
 #else
@@ -1444,6 +1235,7 @@ program JAGURS
          write(0,'(7x,a,f13.8,a,f13.8)') 'mlat0= ', mlat0, ' input value= ', dgrid(ig)%my%glat0/60.0d0
          ierr = ierr + 1
          call fatal_error(110)
+#endif
 #endif
 #else
 #ifndef MPI
@@ -1454,6 +1246,7 @@ program JAGURS
          (mlat0 <= dgrid(ig)%my%glat0 - 0.0001d0) .or. (mlat0 >= dgrid(ig)%my%glat0 + 0.0001d0)) then
 #endif
          write(0,'(a,i0,a)') '****** grid= ', ig, ' not properly registered to coarse grid, exiting...'
+#ifndef NOCHECK
 #ifndef MPI
          stop
 #else
@@ -1462,6 +1255,7 @@ program JAGURS
          write(0,'(7x,a,f13.8,a,f13.8)') 'mlat0= ', mlat0, ' input value= ', dgrid(ig)%my%glat0
          ierr = ierr + 1
          call fatal_error(110)
+#endif
 #endif
 #endif
       end if
@@ -1480,12 +1274,16 @@ program JAGURS
 #ifndef MPI
          write(0,'(a,i0,a,i0,a)') '****** (nx - 1 = ', dgrid(ig)%my%nx-1, ' ) / (nr = ', dgrid(ig)%my%nr, ' ) must be zero'
          write(0,'(a,i0,a,i0,a)') '****** (ny - 1 = ', dgrid(ig)%my%ny-1, ' ) / (nr = ', dgrid(ig)%my%nr, ' ) must be zero'
+#ifndef NOCHECK
          stop
+#endif
 #else
          write(0,'(a,i0,a,i0,a)') '****** (nx - 1 = ', dgrid(ig)%my%totalNx-1, ' ) / (nr = ', dgrid(ig)%my%nr, ' ) must be zero'
          write(0,'(a,i0,a,i0,a)') '****** (ny - 1 = ', dgrid(ig)%my%totalNy-1, ' ) / (nr = ', dgrid(ig)%my%nr, ' ) must be zero'
+#ifndef NOCHECK
          ierr = ierr + 1
          call fatal_error(111)
+#endif
 #endif
       end if
 
@@ -1593,33 +1391,17 @@ program JAGURS
          call wet_or_dry(dgrid(ig)%wave_field,dgrid(ig)%depth_field,dgrid(ig)%wod_flags, &
 #if !defined(MPI) || !defined(ONEFILE)
 #ifndef PIXELIN
-#ifndef NFSUPPORT
-                         dgrid(ig)%my%nx,dgrid(ig)%my%ny,dgrid(ig)%wod_file,dgrid(ig)%wod_field)
-#else
                          dgrid(ig)%my%nx,dgrid(ig)%my%ny,dgrid(ig)%wod_file,dgrid(ig)%wod_field,dgrid(ig)%my%formatid)
-#endif
 #else
                          dgrid(ig)%my%nx,dgrid(ig)%my%ny,dgrid(ig)%wod_file,dgrid(ig)%wod_field, &
-#ifndef NFSUPPORT
                          dgrid(ig)%my%nxorg,dgrid(ig)%my%nyorg)
-#else
-                         dgrid(ig)%my%nxorg,dgrid(ig)%my%nyorg,dgrid(ig)%my%formatid)
-#endif
 #endif
 #else
                          dgrid(ig)%my%nx,dgrid(ig)%my%ny,dgrid(ig)%wod_file,dgrid(ig)%wod_field, &
 #ifndef PIXELIN
-#ifndef NFSUPPORT
-                         dgrid(ig),myrank)
-#else
                          dgrid(ig),myrank,dgrid(ig)%my%formatid)
-#endif
-#else
-#ifndef NFSUPPORT
-                         dgrid(ig),myrank,dgrid(ig)%my%nxorg,dgrid(ig)%my%nyorg)
 #else
                          dgrid(ig),myrank,dgrid(ig)%my%nxorg,dgrid(ig)%my%nyorg,dgrid(ig)%my%formatid)
-#endif
 #endif
 #endif
          TIMER_STOP('wet_or_dry')
@@ -1643,160 +1425,7 @@ program JAGURS
    tg_station_file_name = trim(input_dirname) // trim(tg_station_file_name)
 #endif
 ! ==============================================================================
-#ifndef __SX__
    call tgs_open_ct(dgrid,ngrid,dt*REAL_FUNC(itgrn),nstep/itgrn,nsta,program_name,tg_station_file_name,mytgs)
-#else
-   !*** read in the latitude and longitude ****
-   open(1,file=trim(tg_station_file_name),action='read',status='old',form='formatted',err=500)
-   ista = 0
-
-   read(1,'(a)',err=501) str
-   read(str,'(i)',err=501) nsta
-   if(nsta <= 0) goto 501
-
-   allocate(mytgs(nsta))
-
-#ifndef MPI
-   do ista = 1, nsta
-#else
-   ista = 1
-   do ksta = 1, nsta
-#endif
-      read(1,'(a)') str
-      read(str,*) mytgs(ista)%geolat, mytgs(ista)%geolon, mytgs(ista)%number
-
-#ifndef CARTESIAN
-      colat = 90.0d0 - mytgs(ista)%geolat
-      if(mytgs(ista)%geolon < 0.0d0) then
-         colon = 360.0d0 + mytgs(ista)%geolon
-      else
-         colon = mytgs(ista)%geolon
-      end if
-
-      mytgs(ista)%mcolat = colat*60.0d0
-      mytgs(ista)%mcolon = colon*60.0d0
-#else
-      mytgs(ista)%mcolat = mytgs(ista)%geolat
-      mytgs(ista)%mcolon = mytgs(ista)%geolon
-#endif
-      mytgs(ista)%ig = 0
-      mytgs(ista)%ilon = 0
-      mytgs(ista)%ilat = 0
-
-      mindh = 2.0d0*dgrid(1)%my%dh
-#ifdef MPI
-      kg = -1
-#endif
-      do ig = 1, ngrid
-         call tgs_find_grid_coords(mytgs(ista)%mcolon,mytgs(ista)%mcolat, &
-#ifndef MPI
-#ifndef CARTESIAN
-                                   dgrid(ig)%my%mlon0,dgrid(ig)%my%mlat0,REAL_FUNC(dgrid(ig)%my%dh*60.0d0), &
-#else
-                                   dgrid(ig)%my%mlon0,dgrid(ig)%my%mlat0,REAL_FUNC(dgrid(ig)%my%dh), &
-#endif
-#else
-#ifndef CARTESIAN
-                                   dgrid(ig)%my%glon0,dgrid(ig)%my%glat0,REAL_FUNC(dgrid(ig)%my%dh*60.0d0), &
-#else
-                                   dgrid(ig)%my%glon0,dgrid(ig)%my%glat0,REAL_FUNC(dgrid(ig)%my%dh), &
-#endif
-#endif
-                                   ilon,ilat)
-! === DEBUG by tkato 2015/03/04 ================================================
-#ifdef CARTESIAN
-#ifndef MPI
-         ilat = dgrid(ig)%my%ny - ilat + 1
-#else
-         ilat = dgrid(ig)%my%totalNy - ilat + 1
-#endif
-#endif
-! ==============================================================================
-#ifndef MPI
-         if(ilon < 1 .or. ilon > dgrid(ig)%my%nx .or. ilat < 1 .or. ilat > dgrid(ig)%my%ny) then
-            !  tide gauge is not in extent of dg[ig]
-            if(ig == 1) then
-                ! we assume that ig=1 is the ancestor of all grids and if the tide gauge is
-                ! outside of that then exit
-                write(0,'(a,i0,a)') 'Tide Gauge Point ', ista, ' appears to be outside the box.'
-                ! DB added some more information here
-                write(0,'(a,f,a,f)') 'Station geolon=', mytgs(ista)%geolon, ' geolat=', mytgs(ista)%geolat
-                write(0,'(a,i0,a,i0,a,i0,a,i0)') 'ilon=', ilon, ' ilat=', ilat, ' nx=', dgrid(ig)%my%nx, ' ny=', dgrid(ig)%my%ny
-                stop
-            else
-               ! in this case ig is not the big grid and tide gauge is allowed to be
-               !  outside, so  continue on to the next iteration of the loop
-               cycle
-            end if
-         end if
-
-         if(dgrid(ig)%my%dh < mindh) then
-            mindh = dgrid(ig)%my%dh
-            mytgs(ista)%ig = ig
-
-            mytgs(ista)%ilon = ilon
-            mytgs(ista)%ilat = ilat
-            mytgs(ista)%dt = dt
-            mytgs(ista)%nt = nstep
-
-            mytgs(ista)%z = dgrid(ig)%depth_field%dz(mytgs(ista)%ilon,mytgs(ista)%ilat)
-         end if
-      end do
-#else
-         if(ilon >= 1 .and. ilon <= dgrid(ig)%my%totalNx .and. ilat >= 1 .and. ilat <= dgrid(ig)%my%totalNy) then
-            if(dgrid(ig)%my%dh < mindh) then
-               mindh = dgrid(ig)%my%dh
-               kg = ig
-            end if
-         end if
-      end do
-      if(kg < 0) then
-         write(0,'(a,i0,a)') 'Tide Gauge Point ', ksta, ' appears to be outside the box.'
-         ! DB added some more information here
-         write(0,'(a,f,a,f)') 'Station geolon=', mytgs(ista)%geolon, ' geolat=', mytgs(ista)%geolat
-         write(0,'(a,i0,a,i0,a,i0,a,i0)') 'ilon=', ilon, ' ilat=', ilat, &
-            ' nx=', dgrid(1)%my%totalNx, ' ny=', dgrid(1)%my%totalNy
-         call fatal_error(303)
-      end if
-
-      ! set if tgs exists in local area
-      call tgs_find_grid_coords(mytgs(ista)%mcolon,mytgs(ista)%mcolat, &
-#ifndef CARTESIAN
-                                dgrid(kg)%my%glon0,dgrid(kg)%my%glat0,REAL_FUNC(dgrid(kg)%my%dh*60.0d0), &
-#else
-                                dgrid(kg)%my%glon0,dgrid(kg)%my%glat0,REAL_FUNC(dgrid(kg)%my%dh), &
-#endif
-                                ilon,ilat)
-! === DEBUG by tkato 2015/03/04 ================================================
-#ifdef CARTESIAN
-      ilat = dgrid(kg)%my%totalNy - ilat + 1
-#endif
-! ==============================================================================
-      if(ilon >= dgrid(kg)%my%ix .and. ilon <= dgrid(kg)%my%ixend .and. &
-         ilat >= dgrid(kg)%my%iy .and. ilat <= dgrid(kg)%my%iyend) then
-         mytgs(ista)%ig = kg
-
-         mytgs(ista)%ilon = ilon - dgrid(kg)%my%kx + 1
-         mytgs(ista)%ilat = ilat - dgrid(kg)%my%ky + 1
-         mytgs(ista)%dt = dt
-         mytgs(ista)%nt = nstep
-
-         mytgs(ista)%z = dgrid(kg)%depth_field%dz(mytgs(ista)%ilon,mytgs(ista)%ilat)
-
-         ista = ista + 1
-      end if
-#endif
-   end do
-   close(1)
-#ifdef MPI
-   nsta = ista - 1
-#endif
-
-   write(6,'(a,a,i0,a,a)') trim(program_name), ': tgs_open_rwg.c: nsta=', nsta, &
-      ' read from file ', trim(tg_station_file_name)
-
-503 continue
-#endif
    TIMER_STOP('tgs_open_ct')
 
    !*** thomas - all this conditional on nsta > 0 ***
@@ -1923,8 +1552,12 @@ program JAGURS
 #ifdef NORMALMODE
    call normalmode_read_namelist(dt)
    do ig = 1, ngrid
+#ifndef NM_DEF
       call make_nm_ind(dgrid(ig)%my%nx,dgrid(ig)%my%ny,dgrid(ig)%my%mlat0,dgrid(ig)%my%mlon0,dgrid(ig)%my%dh, &
                        dgrid(ig)%wave_field%nm_ind)
+#else
+      call normalmode_set_params(dgrid(ig)%my%mlat0,dgrid(ig)%my%mlon0,dgrid(ig)%my%dh)
+#endif
    end do
 #endif
    !*** main loop ***
@@ -1949,6 +1582,107 @@ program JAGURS
       call read_restart_file(ngrid, dgrid, restart_file_name)
       TIMER_STOP('read_restart_file')
    end if
+
+   do ig = 1, ngrid
+      file_name_init_hz => dgrid(ig)%init_hz_file
+      file_name_init_fx => dgrid(ig)%init_fx_file
+      file_name_init_fy => dgrid(ig)%init_fy_file
+      wave_field        => dgrid(ig)%wave_field
+      depth_field       => dgrid(ig)%depth_field
+      niz               =  dgrid(ig)%my%nx
+      njz               =  dgrid(ig)%my%ny
+      linear_flag       =  dgrid(ig)%my%linear_flag
+      wod_flags         => dgrid(ig)%wod_flags
+#ifdef PIXELIN
+      nxorg             =  dgrid(ig)%my%nxorg
+      nyorg             =  dgrid(ig)%my%nyorg
+#endif
+
+      if((init_val_interpolation == 0) .or. (ig == 1)) then
+         if(file_name_init_hz(1:10) /= 'NO_INIT_HZ') then
+            call read_init_val_gmt_grd(file_name_init_hz, wave_field, niz, njz, linear_flag, dgrid(ig), myrank, nxorg, nyorg, dgrid(ig)%my%formatid, HGT)
+#ifdef MPI
+            call exchange_edges(HGT,dgrid(ig))
+#endif
+            if(linear_flag == 0) then
+               call recheck_wod(wave_field, depth_field, wod_flags, niz, njz, smallh_xy)
+#ifdef MPI
+               call exchange_edges(HGT,dgrid(ig))
+               call exchange_edges_wod(dgrid(ig))
+#endif
+            end if
+         end if
+
+         if(file_name_init_fx(1:10) /= 'NO_INIT_FX') then
+            call read_init_val_gmt_grd(file_name_init_fx, wave_field, niz, njz, linear_flag, dgrid(ig), myrank, nxorg, nyorg, dgrid(ig)%my%formatid, IFX)
+
+            if(linear_flag == 0) then
+!$omp parallel do private(i)
+               do j = 1, njz
+                  do i = 1, niz
+                     if(wod_flags(i,j) /= 1) wave_field%fx(i,j) = 0.0d0
+                  end do
+               end do
+            end if
+
+#ifdef MPI
+            call exchange_edges(VEL,dgrid(ig))
+#endif
+         end if
+
+         if(file_name_init_fy(1:10) /= 'NO_INIT_FY') then
+            call read_init_val_gmt_grd(file_name_init_fy, wave_field, niz, njz, linear_flag, dgrid(ig), myrank, nxorg, nyorg, dgrid(ig)%my%formatid, IFY)
+
+            if(linear_flag == 0) then
+!$omp parallel do private(i)
+               do j = 1, njz
+                  do i = 1, niz
+                     if(wod_flags(i,j) /= 1) wave_field%fy(i,j) = 0.0d0
+                  end do
+               end do
+            end if
+
+#ifdef MPI
+            call exchange_edges(VEL,dgrid(ig))
+#endif
+         end if
+      else
+         pid = dgrid(ig)%parent%id
+
+         call interp2fine_init_hz(dgrid(pid), dgrid(ig))
+
+#ifdef MPI
+         call exchange_edges(HGT,dgrid(ig))
+#endif
+         if(linear_flag == 0) then
+            call recheck_wod(wave_field, depth_field, wod_flags, niz, njz, smallh_xy)
+#ifdef MPI
+            call exchange_edges(HGT,dgrid(ig))
+            call exchange_edges_wod(dgrid(ig))
+#endif
+         end if
+
+         call interp2fine_init_fx(dgrid(pid), dgrid(ig))
+         call interp2fine_init_fy(dgrid(pid), dgrid(ig))
+!
+         if(linear_flag == 0) then
+!$omp parallel do private(i)
+            do j = 1, njz
+               do i = 1, niz
+                  if(wod_flags(i,j) /= 1) then
+                     wave_field%fx(i,j) = 0.0d0
+                     wave_field%fy(i,j) = 0.0d0
+                  end if
+               end do
+            end do
+         end if
+
+#ifdef MPI
+         call exchange_edges(VEL,dgrid(ig))
+#endif
+      end if
+   end do
+
    do istep = istart, nstep
 ! ==============================================================================
       t = REAL_FUNC(istep) * dt
@@ -1958,11 +1692,7 @@ program JAGURS
          trunc_flag = check_trunc(max_time_i)
 #else
          if(myrank == 0) trunc_flag = check_trunc(max_time_i)
-#ifndef MULTI
-         call MPI_Bcast(trunc_flag, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-#else
-         call MPI_Bcast(trunc_flag, 1, MPI_LOGICAL, 0, MPI_MEMBER_WORLD, ierr)
-#endif
+         call MPI_Bcast(trunc_flag, 1, MPI_LOGICAL, 0, __MPICOMM__, ierr)
 #endif
          if(trunc_flag) then
             write(6,'(a)')          '======================================================='
@@ -2395,30 +2125,10 @@ program JAGURS
 ! ==============================================================================
          pid = dgrid(ig)%parent%id
          TIMER_START('tstep_grid_vel')
-#ifndef CONV_CHECK
-#ifndef CARTESIAN
-#ifndef NORMALMODE
-         call tstep_grid(VEL,ig,dgrid(pid),dgrid(ig),cf,cfl,coriolis,dt,smallh_xy,smallh_wod,c2p_all)
-#else
-         call tstep_grid(VEL,ig,dgrid(pid),dgrid(ig),cf,cfl,coriolis,dt,smallh_xy,smallh_wod,c2p_all,istep)
-#endif
-#else
-         call tstep_grid(VEL,ig,dgrid(pid),dgrid(ig),cf,cfl,dt,smallh_xy,smallh_wod,c2p_all)
-#endif
-#else
-#ifndef CARTESIAN
-#ifndef NORMALMODE
-         call tstep_grid(VEL,ig,dgrid(pid),dgrid(ig),cf,cfl,coriolis,dt,smallh_xy,smallh_wod,c2p_all,conv_step)
-#else
          call tstep_grid(VEL,ig,dgrid(pid),dgrid(ig),cf,cfl,coriolis,dt,smallh_xy,smallh_wod,c2p_all,conv_step,istep)
-#endif
-#else
-         call tstep_grid(VEL,ig,dgrid(pid),dgrid(ig),cf,cfl,dt,smallh_xy,smallh_wod,c2p_all,conv_step)
-#endif
-#endif
          TIMER_STOP('tstep_grid_vel')
 #ifdef BANKFILE
-         if(dgrid(ig)%bank_file /= 'NO_BANK_FILE_GIVEN') then
+         if(dgrid(ig)%bank_file(1:7) /= 'NO_BANK') then
 #ifdef MPI
             TIMER_START('exchange_edges_btxbty')
             call exchange_edges_btxbty(dgrid(ig))
@@ -2537,27 +2247,7 @@ program JAGURS
       do ig = 1, ngrid
          pid = dgrid(ig)%parent%id
          TIMER_START('tstep_grid_hgt')
-#ifndef CONV_CHECK
-#ifndef CARTESIAN
-#ifndef NORMALMODE
-         call tstep_grid(HGT,ig,dgrid(pid),dgrid(ig),cf,cfl,coriolis,dt,smallh_xy,smallh_wod,c2p_all)
-#else
-         call tstep_grid(HGT,ig,dgrid(pid),dgrid(ig),cf,cfl,coriolis,dt,smallh_xy,smallh_wod,c2p_all,istep)
-#endif
-#else
-         call tstep_grid(HGT,ig,dgrid(pid),dgrid(ig),cf,cfl,dt,smallh_xy,smallh_wod,c2p_all)
-#endif
-#else
-#ifndef CARTESIAN
-#ifndef NORMALMODE
-         call tstep_grid(HGT,ig,dgrid(pid),dgrid(ig),cf,cfl,coriolis,dt,smallh_xy,smallh_wod,c2p_all,conv_step)
-#else
          call tstep_grid(HGT,ig,dgrid(pid),dgrid(ig),cf,cfl,coriolis,dt,smallh_xy,smallh_wod,c2p_all,conv_step,istep)
-#endif
-#else
-         call tstep_grid(HGT,ig,dgrid(pid),dgrid(ig),cf,cfl,dt,smallh_xy,smallh_wod,c2p_all,conv_step)
-#endif
-#endif
          TIMER_STOP('tstep_grid_hgt')
 
 ! === recheck_wod should be called after outsea_rwg. by tkato 2012/09/11 =======
@@ -2656,11 +2346,7 @@ program JAGURS
          end do
 ! === Finalized if error occurred. =============================================
 #ifdef MPI
-#ifndef MULTI
-         call MPI_Allreduce(MPI_IN_PLACE, error, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-         call MPI_Allreduce(MPI_IN_PLACE, error, 1, MPI_INTEGER, MPI_SUM, MPI_MEMBER_WORLD, ierr)
-#endif
+         call MPI_Allreduce(MPI_IN_PLACE, error, 1, MPI_INTEGER, MPI_SUM, __MPICOMM__, ierr)
 #endif
          if(error /= 0) then
             TIMER_STOP('error_check')
@@ -3274,11 +2960,7 @@ program JAGURS
 #endif
 
 #ifdef MPI
-#ifndef MULTI
-   call MPI_Barrier(MPI_COMM_WORLD, ierr)
-#else
-   call MPI_Barrier(MPI_MEMBER_WORLD, ierr)
-#endif
+   call MPI_Barrier(__MPICOMM__, ierr)
 #endif
    TIMER_STOP('All')
 #ifdef TIMER
@@ -3301,21 +2983,6 @@ program JAGURS
 #endif
    stop
 
-#ifdef __SX__
-300 write(0,'(a,a)') 'read_grid_info(): cant open file ', trim(gridfile)
-#ifndef MPI
-   stop
-#else
-   ierr = 1
-   call fatal_error(201)
-#endif
-500 write(0,'(a,a)') 'missing tide gauge station ', trim(tg_station_file_name)
-   nsta = 0
-   goto 503
-501 write(0,'(a,a)') 'missing or malformed tide gauge station file ', trim(tg_station_file_name)
-   nsta = 0
-   goto 503
-#endif
 100 write(0,'(a,a)') 'Error opening rupture list file ', trim(dgrid(1)%my%disp_file)
 #ifndef MPI
    stop
